@@ -1,0 +1,81 @@
+name: CI
+env:
+  DEBUG: napi:*
+  APP_NAME: lightningcss
+  MACOSX_DEPLOYMENT_TARGET: "10.13"
+  CARGO_INCREMENTAL: "1"
+  WORKING_DIRECTORY: lightningcss
+on:
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          # Windows
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary: lightningcss.exe
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            binary: lightningcss.exe
+          # MacOS
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            strip: strip -x
+            binary: lightningcss
+
+    name: build-${{ matrix.settings.target }}
+    runs-on: ${{ matrix.settings.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/checkout-repo
+      - name: Setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: "yarn"
+          cache-dependency-path: lightningcss/yarn.lock
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: ${{ matrix.settings.target }}
+      - name: Install node.js dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: yarn install
+      - name: Cache cargo
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ~/.napi-rs
+            ${{ env.WORKING_DIRECTORY }}/.cargo-cache
+            ${{ env.WORKING_DIRECTORY }}/target
+          key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.os }}-${{ hashFiles(format('{0}/Cargo.lock', env.WORKING_DIRECTORY)) }}
+      - name: Build release
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: npx napi build --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }}
+      - name: Build CLI
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          cargo build --release --features cli --target ${{ matrix.settings.target }}
+          node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ matrix.settings.binary }}', '${{ matrix.settings.binary }}')"
+      - name: Strip debug symbols # https://github.com/rust-lang/rust/issues/46034
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        if: ${{ matrix.settings.strip }}
+        run: ${{ matrix.settings.strip }} node/*.node ${{ matrix.settings.binary }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bindings-${{ matrix.settings.target }}
+          path: |
+            ${{ env.WORKING_DIRECTORY }}/node/*.node
+            ${{ env.WORKING_DIRECTORY }}/${{ matrix.settings.binary }}

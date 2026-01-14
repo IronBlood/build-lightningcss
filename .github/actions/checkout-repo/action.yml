@@ -1,0 +1,12 @@
+name: Checkout lightningcss
+description: Checkout the source code at a given ref
+runs:
+  using: "composite"
+  steps:
+    - name: Clone lightningcss
+      shell: bash
+      env:
+        URL_REPO: "https://github.com/IronBlood/lightningcss"
+        URL_REF: "pr-rc-0"
+      run: |
+        git clone --depth 1 --branch ${{ env.URL_REF }} ${{ env.URL_REPO }}
