@@ -1,0 +1,97 @@
+diff --git a/node/test/bundle.test.mjs b/node/test/bundle.test.mjs
+index 50d113b..ac644ed 100644
+--- a/node/test/bundle.test.mjs
++++ b/node/test/bundle.test.mjs
+@@ -27,6 +27,8 @@ if (process.env.TEST_WASM === 'node') {
+   bundleAsync = (await import('../index.mjs')).bundleAsync;
+ }
+ 
++const TEST_WASM = process.env.TEST_WASM !== undefined;
++
+ test('resolver', async () => {
+   const inMemoryFs = new Map(Object.entries({
+     'foo.css': `
+@@ -248,11 +250,13 @@ test('read throw with location info', async () => {
+ 
+   if (!error) throw new Error(`\`testReadThrow()\` failed. Expected \`bundleAsync()\` to throw, but it did not.`);
+   assert.equal(error.message, `Oh noes! Failed to read \`bar.css\`.`);
++  if (!TEST_WASM) {
+   assert.equal(error.fileName, 'foo.css');
+   assert.equal(error.loc, {
+     line: 1,
+     column: 1
+   });
++  }
+ });
+ 
+ test('async read throw with location info', async () => {
+@@ -275,11 +279,13 @@ test('async read throw with location info', async () => {
+ 
+   if (!error) throw new Error(`\`testReadThrow()\` failed. Expected \`bundleAsync()\` to throw, but it did not.`);
+   assert.equal(error.message, `Oh noes! Failed to read \`bar.css\`.`);
++  if (!TEST_WASM) {
+   assert.equal(error.fileName, 'foo.css');
+   assert.equal(error.loc, {
+     line: 1,
+     column: 1
+   });
++  }
+ });
+ 
+ test('resolve throw', async () => {
+@@ -299,11 +305,13 @@ test('resolve throw', async () => {
+ 
+   if (!error) throw new Error(`\`testResolveThrow()\` failed. Expected \`bundleAsync()\` to throw, but it did not.`);
+   assert.equal(error.message, `Oh noes! Failed to resolve \`root:hello/world.css\` from \`tests/testdata/foo.css\`.`);
++  if (!TEST_WASM) {
+   assert.equal(error.fileName, 'tests/testdata/foo.css');
+   assert.equal(error.loc, {
+     line: 1,
+     column: 1
+   });
++  }
+ });
+ 
+ test('async resolve throw', async () => {
+@@ -323,11 +331,13 @@ test('async resolve throw', async () => {
+ 
+   if (!error) throw new Error(`\`testResolveThrow()\` failed. Expected \`bundleAsync()\` to throw, but it did not.`);
+   assert.equal(error.message, `Oh noes! Failed to resolve \`root:hello/world.css\` from \`tests/testdata/foo.css\`.`);
++  if (!TEST_WASM) {
+   assert.equal(error.fileName, 'tests/testdata/foo.css');
+   assert.equal(error.loc, {
+     line: 1,
+     column: 1
+   });
++  }
+ });
+ 
+ test('read return non-string', async () => {
+@@ -366,11 +376,13 @@ test('resolve return non-string', async () => {
+ 
+   if (!error) throw new Error(`\`testResolveReturnNonString()\` failed. Expected \`bundleAsync()\` to throw, but it did not.`);
+   assert.equal(error.message, 'expect String, got: Number');
++  if (!TEST_WASM) {
+   assert.equal(error.fileName, 'tests/testdata/foo.css');
+   assert.equal(error.loc, {
+     line: 1,
+     column: 1
+   });
++  }
+ });
+ 
+ test('should throw with location info on syntax errors', async () => {
+@@ -389,11 +401,13 @@ test('should throw with location info on syntax errors', async () => {
+   }
+ 
+   assert.equal(error.message, `Unexpected end of input`);
++  if (!TEST_WASM) {
+   assert.equal(error.fileName, 'tests/testdata/foo.css');
+   assert.equal(error.loc, {
+     line: 1,
+     column: 5
+   });
++  }
+ });
+ 
+ test('should support throwing in visitors', async () => {

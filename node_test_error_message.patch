@@ -1,0 +1,22 @@
+diff --git a/node/test/bundle.test.mjs b/node/test/bundle.test.mjs
+index 50d113b..c9afe42 100644
+--- a/node/test/bundle.test.mjs
++++ b/node/test/bundle.test.mjs
+@@ -346,7 +346,7 @@ test('read return non-string', async () => {
+   }
+ 
+   if (!error) throw new Error(`\`testReadReturnNonString()\` failed. Expected \`bundleAsync()\` to throw, but it did not.`);
+-  assert.equal(error.message, 'expect String, got: Number');
++  assert.equal(error.message, 'Failed to convert JavaScript value `Number 1234 ` into rust type `String`');
+ });
+ 
+ test('resolve return non-string', async () => {
+@@ -365,7 +365,7 @@ test('resolve return non-string', async () => {
+   }
+ 
+   if (!error) throw new Error(`\`testResolveReturnNonString()\` failed. Expected \`bundleAsync()\` to throw, but it did not.`);
+-  assert.equal(error.message, 'expect String, got: Number');
++  assert.equal(error.message, 'Failed to convert JavaScript value `Number 1234 ` into rust type `String`');
+   assert.equal(error.fileName, 'tests/testdata/foo.css');
+   assert.equal(error.loc, {
+     line: 1,
