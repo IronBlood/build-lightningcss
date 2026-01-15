@@ -4,6 +4,7 @@ on:
 
 jobs:
   check-llvm-strip:
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - name: Install llvm
@@ -11,6 +12,7 @@ jobs:
       - name: Check llvm-strip
         run: which llvm-strip
   show-android-linker:
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - name: Download NDK
@@ -21,6 +23,7 @@ jobs:
         run: |
           ls android-ndk-r28/toolchains/llvm/prebuilt/linux-x86_64/bin
   inspect-armv7-test-binary:
+    if: ${{ false }}
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v6
