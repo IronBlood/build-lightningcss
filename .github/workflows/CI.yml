@@ -262,7 +262,9 @@ jobs:
         run: sudo apt update && sudo apt install -y binaryen
       - name: Build wasm
         working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: yarn wasm:build-release
+        run: |
+          yarn install
+          yarn wasm:build-release
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
