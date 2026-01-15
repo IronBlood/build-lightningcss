@@ -259,7 +259,7 @@ jobs:
           components: clippy, rustfmt
           targets: wasm32-unknown-unknown
       - name: Install wasm-opt
-        run: sudo apt update && sudo apt install -y wabt
+        run: sudo apt update && sudo apt install -y binaryen
       - name: Build wasm
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: yarn wasm:build-release
