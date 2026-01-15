@@ -233,3 +233,29 @@ jobs:
           path: |
             ${{ env.WORKING_DIRECTORY }}/node/*.node
             ${{ env.WORKING_DIRECTORY }}/lightningcss
+
+  build-wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/checkout-repo
+      - name: Setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: "yarn"
+          cache-dependency-path: lightningcss/yarn.lock
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: wasm32-unknown-unknown
+      - name: Install wasm-opt
+        run: sudo apt update && sudo apt install -y wabt
+      - name: Build wasm
+        run: yarn wasm:build-release
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm
+          path: wasm/lightningcss_node.wasm
