@@ -26,6 +26,10 @@ jobs:
             target: aarch64-pc-windows-msvc
             build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target aarch64-pc-windows-msvc
             build_cli: cargo build --release --features cli --target aarch64-pc-windows-msvc
+          - os: windows-latest
+            target: i686-pc-windows-msvc
+            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target i686-pc-windows-msvc
+            build_cli: cargo build --release --features cli --target i686-pc-windows-msvc
           # MacOS
           - os: macos-latest
             target: x86_64-apple-darwin
