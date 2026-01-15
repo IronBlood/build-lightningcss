@@ -1,0 +1,10 @@
+name: dummy
+on:
+  workflow_dispatch:
+
+jobs:
+  check-llvm-strip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check llvm-strip
+        run: which llvm-strip
