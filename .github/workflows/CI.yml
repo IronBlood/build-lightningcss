@@ -82,12 +82,14 @@ jobs:
             strip: llvm-strip
             binary: lightningcss
             android_home: /tmp/android-ndk-r28
+            build_cli: CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=/tmp/android-ndk-r28/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang cargo build --release --features cli --target aarch64-linux-android
           - os: ubuntu-latest
             android: true
             target: armv7-linux-androideabi
             strip: llvm-strip
             binary: lightningcss
             android_home: /tmp/android-ndk-r28
+            build_cli: CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER=/tmp/android-ndk-r28/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang cargo build --release --features cli --target armv7-linux-androideabi
 
     name: build-${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.os }}
@@ -173,7 +175,7 @@ jobs:
         env:
           ANDROID_NDK_LATEST_HOME: ${{ matrix.settings.android_home }}
         run: |
-          cargo build --release --features cli --target ${{ matrix.settings.target }}
+          ${{ matrix.settings.build_cli }}
           node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ matrix.settings.binary }}', '${{ matrix.settings.binary }}')"
 
       - name: Strip debug symbols # https://github.com/rust-lang/rust/issues/46034
