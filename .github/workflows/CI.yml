@@ -318,4 +318,4 @@ jobs:
             ${{ env.WORKING_DIRECTORY }}
       - name: Cargo test
         working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: cargo test --all-features --target ${{ amtrix.settings.target }}
+        run: cargo test --all-features --target ${{ matrix.settings.target }}
