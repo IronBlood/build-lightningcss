@@ -33,6 +33,7 @@ jobs:
             target: aarch64-apple-darwin
             strip: strip -x
             binary: lightningcss
+            jemalloc_lg_page: "14"
           # Linux
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
@@ -113,10 +114,14 @@ jobs:
       - name: Build release
         if: ${{ !matrix.settings.android }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          JEMALLOC_SYS_WITH_LG_PAGE: ${{ matrix.settings.jemalloc_lg_page }}
         run: npx napi build --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }}
       - name: Build CLI
         if: ${{ !matrix.settings.android }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          JEMALLOC_SYS_WITH_LG_PAGE: ${{ matrix.settings.jemalloc_lg_page }}
         run: |
           cargo build --release --features cli --target ${{ matrix.settings.target }}
           node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ matrix.settings.binary }}', '${{ matrix.settings.binary }}')"
