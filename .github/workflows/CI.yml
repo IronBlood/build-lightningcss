@@ -319,6 +319,10 @@ jobs:
         with:
           workspaces: |
             ${{ env.WORKING_DIRECTORY }}
+      - uses: mlugg/setup-zig@v2
+        if: ${{ contains(matrix.settings.target, 'musl') }}
+        with:
+          version: 0.14.1
       - name: Setup toolchain
         if: ${{ matrix.settings.setup }}
         run: ${{ matrix.settings.setup }}
