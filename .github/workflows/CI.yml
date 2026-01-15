@@ -29,6 +29,43 @@ jobs:
             target: x86_64-apple-darwin
             strip: strip -x
             binary: lightningcss
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            strip: strip -x
+            binary: lightningcss
+          # Linux
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            strip: strip
+            binary: lightningcss
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            strip: strip
+            binary: lightningcss
+          - os: ubuntu-24.04-arm
+            strip: strip
+            target: aarch64-unknown-linux-gnu
+            binary: lightningcss
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            strip: strip
+            binary: lightningcss
+          - os: ubuntu-24.04-arm
+            target: armv7-unknown-linux-gnueabihf
+            strip: strip
+            binary: lightningcss
+          - os: ubuntu-latest
+            android: true
+            target: aarch64-linux-android
+            strip: llvm-strip
+            binary: lightningcss
+            android_home: /tmp/android-ndk-r28
+          - os: ubuntu-latest
+            android: true
+            target: armv7-linux-androideabi
+            strip: llvm-strip
+            binary: lightningcss
+            android_home: /tmp/android-ndk-r28
 
     name: build-${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.os }}
@@ -39,6 +76,14 @@ jobs:
         working-directory: ${{ env.WORKING_DIRECTORY }}
         # HACK
         run: git apply -v ../rust-toolchain.patch
+      - name: Setup Android NDK
+        if: ${{ matrix.settings.android }}
+        run: |
+          sudo apt update && sudo apt install unzip -y
+          cd /tmp
+          wget -q https://dl.google.com/android/repository/android-ndk-r28-linux.zip -O /tmp/ndk.zip
+          unzip ndk.zip
+
       - name: Setup node
         uses: actions/setup-node@v6
         with:
@@ -64,14 +109,33 @@ jobs:
             ${{ env.WORKING_DIRECTORY }}/.cargo-cache
             ${{ env.WORKING_DIRECTORY }}/target
           key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.os }}-${{ hashFiles(format('{0}/Cargo.lock', env.WORKING_DIRECTORY)) }}
+
       - name: Build release
+        if: ${{ !matrix.settings.android }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: npx napi build --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }}
       - name: Build CLI
+        if: ${{ !matrix.settings.android }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: |
           cargo build --release --features cli --target ${{ matrix.settings.target }}
           node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ matrix.settings.binary }}', '${{ matrix.settings.binary }}')"
+
+      - name: Build release (android)
+        if: ${{ matrix.settings.android }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          ANDROID_NDK_LATEST_HOME: ${{ matrix.settings.android_home }}
+        run: npx napi build --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }}
+      - name: Build CLI (android)
+        if: ${{ matrix.settings.android }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          ANDROID_NDK_LATEST_HOME: ${{ matrix.settings.android_home }}
+        run: |
+          cargo build --release --features cli --target ${{ matrix.settings.target }}
+          node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ matrix.settings.binary }}', '${{ matrix.settings.binary }}')"
+
       - name: Strip debug symbols # https://github.com/rust-lang/rust/issues/46034
         working-directory: ${{ env.WORKING_DIRECTORY }}
         if: ${{ matrix.settings.strip }}
