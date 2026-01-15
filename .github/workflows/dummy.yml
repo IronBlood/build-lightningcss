@@ -31,6 +31,7 @@ jobs:
         with:
           targets: armv7-unknown-linux-gnueabihf
       - name: Set target
+        working-directory: lightningcss
         run: rustup target add armv7-unknown-linux-gnueabihf
       - name: Build armv7 test binary
         working-directory: lightningcss
