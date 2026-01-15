@@ -20,3 +20,23 @@ jobs:
       - name: Show binaries
         run: |
           ls android-ndk-r28/toolchains/llvm/prebuilt/linux-x86_64/bin
+  inspect-armv7-test-binary:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/checkout-repo
+      - name: Install build deps
+        run: sudo apt-get update && sudo apt-get install -y gcc-arm-linux-gnueabihf binutils file
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: armv7-unknown-linux-gnueabihf
+      - name: Build armv7 test binary
+        working-directory: lightningcss
+        run: cargo test --no-run --target armv7-unknown-linux-gnueabihf
+      - name: Inspect armv7 test binary
+        working-directory: lightningcss
+        run: |
+          bin_path=$(ls target/armv7-unknown-linux-gnueabihf/debug/deps/lightningcss-* | head -n 1)
+          file "$bin_path"
+          ldd "$bin_path" || true
+          readelf -l "$bin_path" | sed -n '1,80p'
