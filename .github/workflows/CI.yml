@@ -192,6 +192,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/checkout-repo
+      - name: Update toolchain
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        # HACK
+        run: git apply -v ../rust-toolchain.patch
       - name: Build
         uses: cross-platform-actions/action@v0.32.0
         env:
@@ -239,6 +243,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/checkout-repo
+      - name: Update toolchain
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        # HACK
+        run: git apply -v ../rust-toolchain.patch
       - name: Setup node
         uses: actions/setup-node@v6
         with:
