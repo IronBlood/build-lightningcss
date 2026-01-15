@@ -303,7 +303,7 @@ jobs:
             test: cargo zigbuild --tests --all-features --target aarch64-unknown-linux-musl
           - host: ubuntu-24.04-arm
             target: armv7-unknown-linux-gnueabihf
-            setup: sudo apt update && sudo apt install -y gcc-arm-linux-gnueabihf
+            setup: sudo dpkg --add-architecture armhf && sudo apt update && sudo apt install -y gcc-arm-linux-gnueabihf libc6:armhf libgcc-s1:armhf libstdc++6:armhf
     runs-on: ${{ matrix.settings.host }}
     steps:
       - uses: actions/checkout@v6
