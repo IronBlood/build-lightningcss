@@ -83,6 +83,7 @@ jobs:
             binary: lightningcss
             android_home: /tmp/android-ndk-r28
             build_cli: CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=/tmp/android-ndk-r28/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang cargo build --release --features cli --target aarch64-linux-android
+            setup: sudo apt update && sudo apt install llvm
           - os: ubuntu-latest
             android: true
             target: armv7-linux-androideabi
@@ -90,6 +91,7 @@ jobs:
             binary: lightningcss
             android_home: /tmp/android-ndk-r28
             build_cli: CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER=/tmp/android-ndk-r28/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang cargo build --release --features cli --target armv7-linux-androideabi
+            setup: sudo apt update && sudo apt install llvm
 
     name: build-${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.os }}
@@ -102,10 +104,9 @@ jobs:
         run: git apply -v ../rust-toolchain.patch
       - name: Setup Android NDK
         if: ${{ matrix.settings.android }}
+        working-directory: /tmp
         run: |
-          sudo apt update && sudo apt install unzip -y
-          cd /tmp
-          wget -q https://dl.google.com/android/repository/android-ndk-r28-linux.zip -O /tmp/ndk.zip
+          wget -q https://dl.google.com/android/repository/android-ndk-r28-linux.zip -O ndk.zip
           unzip ndk.zip
 
       - name: Setup node
