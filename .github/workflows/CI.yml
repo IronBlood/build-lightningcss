@@ -61,18 +61,20 @@ jobs:
             binary: lightningcss
             build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target aarch64-unknown-linux-gnu --use-napi-cross
             build_cli: cargo build --release --features cli --target aarch64-unknown-linux-gnu
+            setup: sudo apt update && sudo apt install -y gcc-aarch64-linux-gnu
           - os: ubuntu-latest
             target: aarch64-unknown-linux-musl
             strip: strip
             binary: lightningcss
-            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target aarch64-unknown-linux-musl --use-napi-cross
-            build_cli: cargo build --release --features cli --target aarch64-unknown-linux-musl
+            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target aarch64-unknown-linux-musl -x
+            build_cli: cargo zigbuild --release --features cli --target aarch64-unknown-linux-musl
           - os: ubuntu-latest
             target: armv7-unknown-linux-gnueabihf
             strip: strip
             binary: lightningcss
             build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target armv7-unknown-linux-gnueabihf --use-napi-cross
             build_cli: cargo build --release --features cli --target armv7-unknown-linux-gnueabihf
+            setup: sudo apt update && sudo apt install -y gcc-arm-linux-gnueabihf
           - os: ubuntu-latest
             android: true
             target: aarch64-linux-android
@@ -128,6 +130,20 @@ jobs:
             ${{ env.WORKING_DIRECTORY }}/.cargo-cache
             ${{ env.WORKING_DIRECTORY }}/target
           key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.os }}-${{ hashFiles(format('{0}/Cargo.lock', env.WORKING_DIRECTORY)) }}
+      - uses: mlugg/setup-zig@v2
+        if: ${{ contains(matrix.settings.target, 'musl') }}
+        with:
+          version: 0.14.1
+      - name: Install cargo-zigbuild
+        uses: taiki-e/install-action@v2
+        if: ${{ contains(matrix.settings.target, 'musl') }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          tool: cargo-zigbuild
+      - name: Setup toolchain
+        if: ${{ matrix.settings.setup }}
+        run: ${{ matrix.settings.setup }}
 
       - name: Build release
         if: ${{ !matrix.settings.android }}
