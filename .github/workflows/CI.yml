@@ -261,9 +261,10 @@ jobs:
       - name: Install wasm-opt
         run: sudo apt update && sudo apt install -y wabt
       - name: Build wasm
+        working-directory: ${{ env.WORKING_DIRECTORY }}
         run: yarn wasm:build-release
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: wasm
-          path: wasm/lightningcss_node.wasm
+          path: ${{ env.WORKING_DIRECTORY }}/wasm/lightningcss_node.wasm
