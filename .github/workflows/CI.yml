@@ -89,7 +89,7 @@ jobs:
     name: build-${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.os }}
     env:
-      BINARY_NAME: ${{ runner.os == 'Windows' && 'lightningcss.exe' || 'lightningcss' }}
+      BINARY_NAME: ${{ contains(matrix.settings.os, 'windows') && 'lightningcss.exe' || 'lightningcss' }}
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/checkout-repo
