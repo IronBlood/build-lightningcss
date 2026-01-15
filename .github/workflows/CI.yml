@@ -273,7 +273,7 @@ jobs:
           path: ${{ env.WORKING_DIRECTORY }}/wasm/lightningcss_node.wasm
 
   test-rust:
-    name: Test Rust on ${{ matrix.settings.target }}
+    name: Test Rust for ${{ matrix.settings.target }}
     strategy:
       fail-fast: false
       matrix:
@@ -299,8 +299,11 @@ jobs:
             target: aarch64-unknown-linux-gnu
           - host: ubuntu-24.04-arm
             target: aarch64-unknown-linux-musl
+            setup: cargo install cargo-zigbuild
+            test: cargo zigbuild --tests --all-features --target aarch64-unknown-linux-musl
           - host: ubuntu-24.04-arm
             target: armv7-unknown-linux-gnueabihf
+            setup: sudo apt update && sudo apt install -y gcc-arm-linux-gnueabihf
     runs-on: ${{ matrix.settings.host }}
     steps:
       - uses: actions/checkout@v6
@@ -316,6 +319,14 @@ jobs:
         with:
           workspaces: |
             ${{ env.WORKING_DIRECTORY }}
+      - name: Setup toolchain
+        if: ${{ matrix.settings.setup }}
+        run: ${{ matrix.settings.setup }}
       - name: Cargo test
+        if: ${{ !matrix.settings.test }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: cargo test --all-features --target ${{ matrix.settings.target }}
+      - name: Cargo test (customized test commands)
+        if: ${{ matrix.settings.test }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: ${{ matrix.settings.test }}
