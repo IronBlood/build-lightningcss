@@ -21,40 +21,58 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             binary: lightningcss.exe
+            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target x86_64-pc-windows-msvc
+            build_cli: cargo build --release --features cli --target x86_64-pc-windows-msvc
           - os: windows-latest
             target: aarch64-pc-windows-msvc
             binary: lightningcss.exe
+            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target aarch64-pc-windows-msvc
+            build_cli: cargo build --release --features cli --target aarch64-pc-windows-msvc
           # MacOS
           - os: macos-latest
             target: x86_64-apple-darwin
             strip: strip -x
             binary: lightningcss
+            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target x86_64-apple-darwin
+            build_cli: cargo build --release --features cli --target x86_64-apple-darwin
           - os: macos-latest
             target: aarch64-apple-darwin
             strip: strip -x
             binary: lightningcss
             jemalloc_lg_page: "14"
+            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target aarch64-apple-darwin
+            build_cli: cargo build --release --features cli --target aarch64-apple-darwin
           # Linux
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             strip: strip
             binary: lightningcss
+            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target x86_64-unknown-linux-gnu
+            build_cli: cargo build --release --features cli --target x86_64-unknown-linux-gnu
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
             strip: strip
             binary: lightningcss
-          - os: ubuntu-24.04-arm
+            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target x86_64-unknown-linux-musl
+            build_cli: cargo build --release --features cli --target x86_64-unknown-linux-musl
+          - os: ubuntu-latest
             strip: strip
             target: aarch64-unknown-linux-gnu
             binary: lightningcss
-          - os: ubuntu-24.04-arm
+            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target aarch64-unknown-linux-gnu --use-napi-cross
+            build_cli: cargo build --release --features cli --target aarch64-unknown-linux-gnu
+          - os: ubuntu-latest
             target: aarch64-unknown-linux-musl
             strip: strip
             binary: lightningcss
-          - os: ubuntu-24.04-arm
+            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target aarch64-unknown-linux-musl --use-napi-cross
+            build_cli: cargo build --release --features cli --target aarch64-unknown-linux-musl
+          - os: ubuntu-latest
             target: armv7-unknown-linux-gnueabihf
             strip: strip
             binary: lightningcss
+            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target armv7-unknown-linux-gnueabihf --use-napi-cross
+            build_cli: cargo build --release --features cli --target armv7-unknown-linux-gnueabihf
           - os: ubuntu-latest
             android: true
             target: aarch64-linux-android
@@ -116,14 +134,14 @@ jobs:
         working-directory: ${{ env.WORKING_DIRECTORY }}
         env:
           JEMALLOC_SYS_WITH_LG_PAGE: ${{ matrix.settings.jemalloc_lg_page }}
-        run: npx napi build --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }}
+        run: ${{ matrix.settings.build }}
       - name: Build CLI
         if: ${{ !matrix.settings.android }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
         env:
           JEMALLOC_SYS_WITH_LG_PAGE: ${{ matrix.settings.jemalloc_lg_page }}
         run: |
-          cargo build --release --features cli --target ${{ matrix.settings.target }}
+          ${{ matrix.settings.build_cli }}
           node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ matrix.settings.binary }}', '${{ matrix.settings.binary }}')"
 
       - name: Build release (android)
