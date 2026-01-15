@@ -196,7 +196,7 @@ jobs:
         working-directory: ${{ env.WORKING_DIRECTORY }}
         # HACK
         run: git apply -v ../rust-toolchain.patch
-      - name: Build
+      - name: Test and Build
         uses: cross-platform-actions/action@v0.32.0
         env:
           RUSTUP_IO_THREADS: 1
@@ -224,6 +224,7 @@ jobs:
             npx napi build --release --platform --manifest-path ./node/Cargo.toml
             strip -x node/*.node
             cargo build --release --features cli
+            cargo test --all-features
             mv target/release/lightningcss lightningcss
             node -e "require('.')"
             ./lightningcss --help
@@ -270,3 +271,51 @@ jobs:
         with:
           name: wasm
           path: ${{ env.WORKING_DIRECTORY }}/wasm/lightningcss_node.wasm
+
+  test-rust:
+    name: Test Rust on ${{ matrix.settings.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          # Windows
+          - host: windows-latest
+            target: x86_64-pc-windows-msvc
+          - host: windows-latest
+            target: i686-pc-windows-msvc
+          - host: windows-11-arm
+            target: aarch64-pc-windows-msvc
+          # macOS
+          - host: macos-latest
+            target: x86_64-apple-darwin
+          - host: macos-latest
+            target: aarch64-apple-darwin
+          # Linux
+          - host: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - host: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - host: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - host: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+          - host: ubuntu-24.04-arm
+            target: armv7-unknown-linux-gnueabihf
+    runs-on: ${{ matrix.settings.host }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/checkout-repo
+      - name: Update toolchain
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        # HACK
+        run: git apply -v ../rust-toolchain.patch
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.settings.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            ${{ env.WORKING_DIRECTORY }}
+      - name: Cargo test
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: cargo test --all-features --target ${{ amtrix.settings.target }}
