@@ -70,7 +70,7 @@ index 50d113b..ac644ed 100644
 @@ -366,11 +376,13 @@ test('resolve return non-string', async () => {
  
    if (!error) throw new Error(`\`testResolveReturnNonString()\` failed. Expected \`bundleAsync()\` to throw, but it did not.`);
-   assert.equal(error.message, 'expect String, got: Number');
+   assert.equal(error.message, 'Failed to convert JavaScript value `Number 1234 ` into rust type `String`');
 +  if (!TEST_WASM) {
    assert.equal(error.fileName, 'tests/testdata/foo.css');
    assert.equal(error.loc, {
