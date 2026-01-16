@@ -239,7 +239,7 @@ jobs:
             ${{ env.WORKING_DIRECTORY }}/node/*.node
             ${{ env.WORKING_DIRECTORY }}/lightningcss
 
-  build-wasm:
+  build-test-wasm:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -266,6 +266,21 @@ jobs:
         run: |
           yarn install
           yarn wasm:build-release
+      - name: Patch tests
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          # HACK 1: error message changed in napi-rs
+          git apply -v ../node_test_error_message.patch
+          # HACK 2: object ref dropped in wasm by napi-rs
+          git apply -v ../node_test_wasm_skip_loc.patch
+          # HACK 3: inject `napi_is_arraybuffer`
+          wget https://raw.githubusercontent.com/IronBlood/napi-wasm/refs/heads/napi_is_arraybuffer/index.mjs -O wasm/node_modules/napi-wasm/index.mjs
+      - name: Run test (node)
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: TEST_WASM=node yarn test
+      - name: Run test (browser)
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: TEST_WASM=node yarn test
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
