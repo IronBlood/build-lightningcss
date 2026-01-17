@@ -229,7 +229,7 @@ jobs:
             npx napi build --release --platform --manifest-path ./node/Cargo.toml
             strip -x node/*.node
             cargo build --release --features cli
-            cargo test --all-features
+            CARGO_TERM_COLOR=always RUST_BACKTRACE=full RUSTFLAGS="-D warnings" cargo test --all-features
             yarn test
             mv target/release/lightningcss lightningcss
             node -e "require('.')"
@@ -350,10 +350,18 @@ jobs:
       - name: Cargo test
         if: ${{ !matrix.settings.test }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          CARGO_TERM_COLOR: always
+          RUST_BACKTRACE: full
+          RUSTFLAGS: -D warnings
         run: cargo test --all-features --target ${{ matrix.settings.target }}
       - name: Cargo test (customized test commands)
         if: ${{ matrix.settings.test }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          CARGO_TERM_COLOR: always
+          RUST_BACKTRACE: full
+          RUSTFLAGS: -D warnings
         run: ${{ matrix.settings.test }}
 
   test-js-win-mac:
