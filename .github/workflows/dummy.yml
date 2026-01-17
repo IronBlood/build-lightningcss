@@ -124,13 +124,15 @@ jobs:
         working-directory: lightningcss
         run: yarn install --ignore-scripts
       - name: Download Windows package
-        shell: pwsh
+        shell: bash
         run: |
-          New-Item -ItemType Directory -Force -Path "$env:TEMP\\lightningcss-pkg" | Out-Null
-          Set-Location "$env:TEMP\\lightningcss-pkg"
+          mkdir -p "$GITHUB_WORKSPACE/lightningcss-pkg"
+          cd "$GITHUB_WORKSPACE/lightningcss-pkg"
           npm pack ${{ matrix.settings.package }}@${{ env.LIGHTNINGCSS_VERSION }}
           tar -xzf ${{ matrix.settings.package }}-*.tgz
-          Move-Item "package\\${{ matrix.settings.binary }}" "$env:GITHUB_WORKSPACE\\lightningcss\\${{ matrix.settings.binary }}"
+          ls -alh .
+          ls -alh package
+          mv "package/${{ matrix.settings.binary }}" "$GITHUB_WORKSPACE/lightningcss/${{ matrix.settings.binary }}"
       - name: Test bindings
         working-directory: lightningcss
         run: yarn test
