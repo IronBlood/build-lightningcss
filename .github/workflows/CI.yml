@@ -194,8 +194,13 @@ jobs:
       - uses: ./.github/actions/checkout-repo
       - name: Update toolchain
         working-directory: ${{ env.WORKING_DIRECTORY }}
-        # HACK
-        run: git apply -v ../rust-toolchain.patch
+        run: |
+          # HACK 1 toolchain
+          git apply -v ../rust-toolchain.patch
+          # HACK 2: error message changed in napi-rs
+          git apply -v ../node_test_error_message.patch
+          # HACK 3: support more platforms
+          git apply -v ../node_index.patch
       - name: Test and Build
         uses: cross-platform-actions/action@v0.32.0
         env:
@@ -220,11 +225,12 @@ jobs:
             yarn --version
             # NOTE extra step because this is the real repo
             cd lightningcss
-            yarn install || true
+            yarn install --ignore-scripts || true
             npx napi build --release --platform --manifest-path ./node/Cargo.toml
             strip -x node/*.node
             cargo build --release --features cli
             cargo test --all-features
+            yarn test
             mv target/release/lightningcss lightningcss
             node -e "require('.')"
             ./lightningcss --help
