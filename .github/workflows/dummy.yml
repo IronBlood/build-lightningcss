@@ -80,9 +80,8 @@ jobs:
         run: |
           mkdir -p /tmp/lightningcss-pkg
           cd /tmp/lightningcss-pkg
-          npm pack lightningcss-linux-arm64-musl
-          tar -xzf lightningcss-linux-arm64-musl-*.tgz
-          ls -alh
+          npm pack lightningcss-linux-x64-musl
+          tar -xzf lightningcss-linux-x64-musl-*.tgz
           mv package/lightningcss.linux-x64-musl.node "${{ github.workspace }}/lightningcss/lightningcss.linux-x64-musl.node"
       - name: Test bindings
         uses: addnab/docker-run-action@v3
