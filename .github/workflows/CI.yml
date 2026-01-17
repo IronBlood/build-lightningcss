@@ -51,8 +51,8 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
             strip: strip
-            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target x86_64-unknown-linux-musl
-            build_cli: cargo build --release --features cli --target x86_64-unknown-linux-musl
+            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target x86_64-unknown-linux-musl -x
+            build_cli: cargo zigbuild --release --features cli --target x86_64-unknown-linux-musl
           - os: ubuntu-latest
             strip: llvm-strip
             target: aarch64-unknown-linux-gnu
