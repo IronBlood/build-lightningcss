@@ -225,11 +225,13 @@ jobs:
             yarn --version
             # NOTE extra step because this is the real repo
             cd lightningcss
+            cp node/index.js node/index.js.bak
             yarn install --ignore-scripts || true
             npx napi build --release --platform --manifest-path ./node/Cargo.toml
             strip -x node/*.node
             cargo build --release --features cli
             CARGO_TERM_COLOR=always RUST_BACKTRACE=full RUSTFLAGS="-D warnings" cargo test --all-features
+            mv node/index.js.bak node/index.js
             yarn test
             mv target/release/lightningcss lightningcss
             node -e "require('.')"
