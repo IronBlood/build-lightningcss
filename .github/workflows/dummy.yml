@@ -57,6 +57,8 @@ jobs:
   test-upstream-x64-musl:
     name: Test upstream x64 musl binding - node@${{ matrix.node }}
     runs-on: ubuntu-latest
+    env:
+      LIGHTNINGCSS_VERSION: "1.30.2"
     strategy:
       fail-fast: false
       matrix:
@@ -66,7 +68,7 @@ jobs:
           - "24"
     steps:
       - name: Clone upstream
-        run: git clone --depth 1 https://github.com/parcel-bundler/lightningcss lightningcss
+        run: git clone --depth 1 --branch v${{ env.LIGHTNINGCSS_VERSION }} https://github.com/parcel-bundler/lightningcss lightningcss
       - name: Setup node
         uses: actions/setup-node@v6
         with:
@@ -80,7 +82,7 @@ jobs:
         run: |
           mkdir -p /tmp/lightningcss-pkg
           cd /tmp/lightningcss-pkg
-          npm pack lightningcss-linux-x64-musl
+          npm pack lightningcss-linux-x64-musl@${{ env.LIGHTNINGCSS_VERSION }}
           tar -xzf lightningcss-linux-x64-musl-*.tgz
           mv package/lightningcss.linux-x64-musl.node "${{ github.workspace }}/lightningcss/lightningcss.linux-x64-musl.node"
       - name: Test bindings
