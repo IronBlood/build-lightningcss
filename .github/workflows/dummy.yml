@@ -136,3 +136,32 @@ jobs:
       - name: Test bindings
         working-directory: lightningcss
         run: yarn test
+  test-upstream-win-rust:
+    name: Test upstream Rust on ${{ matrix.settings.target }} @ ${{ matrix.ref }}
+    runs-on: ${{ matrix.settings.host }}
+    strategy:
+      fail-fast: false
+      matrix:
+        ref:
+          - v1.30.2
+          - master
+        settings:
+          - host: windows-latest
+            target: x86_64-pc-windows-msvc
+          - host: windows-latest
+            target: i686-pc-windows-msvc
+          - host: windows-11-arm
+            target: aarch64-pc-windows-msvc
+    steps:
+      - name: Clone upstream
+        run: git clone --depth 1 --branch ${{ matrix.ref }} https://github.com/parcel-bundler/lightningcss lightningcss
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.settings.target }}
+      - name: Cargo test
+        working-directory: lightningcss
+        env:
+          CARGO_TERM_COLOR: always
+          RUST_BACKTRACE: full
+          RUSTFLAGS: -D warnings
+        run: cargo test --all-features --target ${{ matrix.settings.target }}
