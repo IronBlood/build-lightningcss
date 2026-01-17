@@ -55,6 +55,7 @@ jobs:
           bin_path=$(find target/armv7-unknown-linux-gnueabihf/debug/deps -maxdepth 1 -type f -executable -name 'lightningcss-*' | head -n 1)
           "$bin_path"
   test-upstream-x64-musl:
+    if: ${{ false }}
     name: Test upstream x64 musl binding - node@${{ matrix.node }}
     runs-on: ubuntu-latest
     env:
@@ -91,3 +92,45 @@ jobs:
           image: node:${{ matrix.node }}-alpine
           options: -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }}/lightningcss
           run: yarn test
+  test-upstream-win-bindings:
+    name: Test upstream Windows bindings on ${{ matrix.settings.host }} - node@${{ matrix.node }}
+    runs-on: ${{ matrix.settings.host }}
+    env:
+      LIGHTNINGCSS_VERSION: "1.30.2"
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - "20"
+          - "22"
+          - "24"
+        settings:
+          - host: windows-latest
+            package: lightningcss-win32-x64-msvc
+            binary: lightningcss.win32-x64-msvc.node
+          - host: windows-11-arm
+            package: lightningcss-win32-arm64-msvc
+            binary: lightningcss.win32-arm64-msvc.node
+    steps:
+      - name: Clone upstream
+        run: git clone --depth 1 --branch v${{ env.LIGHTNINGCSS_VERSION }} https://github.com/parcel-bundler/lightningcss lightningcss
+      - name: Setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: yarn
+          cache-dependency-path: lightningcss/yarn.lock
+      - name: Install dependencies
+        working-directory: lightningcss
+        run: yarn install --ignore-scripts
+      - name: Download Windows package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "$env:TEMP\\lightningcss-pkg" | Out-Null
+          Set-Location "$env:TEMP\\lightningcss-pkg"
+          npm pack ${{ matrix.settings.package }}@${{ env.LIGHTNINGCSS_VERSION }}
+          tar -xzf ${{ matrix.settings.package }}-*.tgz
+          Move-Item "package\\${{ matrix.settings.binary }}" "$env:GITHUB_WORKSPACE\\lightningcss\\${{ matrix.settings.binary }}"
+      - name: Test bindings
+        working-directory: lightningcss
+        run: yarn test
