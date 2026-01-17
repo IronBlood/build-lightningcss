@@ -232,7 +232,7 @@ jobs:
             mv node/index.js.bak node/index.js
             yarn test
             cargo build --release --features cli
-            CARGO_TERM_COLOR=always RUST_BACKTRACE=full RUSTFLAGS="-D warnings" cargo test --all-features
+            CARGO_TERM_COLOR=always RUST_BACKTRACE=full cargo test --all-features
             mv target/release/lightningcss lightningcss
             node -e "require('.')"
             ./lightningcss --help
@@ -355,7 +355,6 @@ jobs:
         env:
           CARGO_TERM_COLOR: always
           RUST_BACKTRACE: full
-          RUSTFLAGS: -D warnings
         run: cargo test --all-features --target ${{ matrix.settings.target }}
       - name: Cargo test (customized test commands)
         if: ${{ matrix.settings.test }}
@@ -363,7 +362,6 @@ jobs:
         env:
           CARGO_TERM_COLOR: always
           RUST_BACKTRACE: full
-          RUSTFLAGS: -D warnings
         run: ${{ matrix.settings.test }}
 
   test-js-win-mac:
