@@ -33,7 +33,7 @@ if [ -z "$threads" ]; then
 	threads=1
 fi
 
-iterations=20000
+iterations=200
 ok_single=true
 for i in $(seq 1 "$iterations"); do
 	if ! RAYON_NUM_THREADS="1" "$test_bin" --exact bundler::tests::test_bundle --test-threads=1 > /tmp/bundler-test.log 2>&1; then

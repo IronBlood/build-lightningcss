@@ -34,4 +34,12 @@ jobs:
             lightningcss
       - name: Run race check
         working-directory: lightningcss
-        run: sh ../build-and-test.sh
+        run: |
+          cargo clean
+          sh ../build-and-test.sh
+      - name: Run race check (stable toolchain)
+        working-directory: lightningcss
+        run: |
+          cargo clean
+          git apply ../rust-toolchain.patch
+          sh ../build-and-test.sh
