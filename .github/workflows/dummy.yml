@@ -112,6 +112,7 @@ jobs:
             package: lightningcss-win32-arm64-msvc
             binary: lightningcss.win32-arm64-msvc.node
     steps:
+      - uses: actions/checkout@v6
       - name: Clone upstream
         run: git clone --depth 1 --branch v${{ env.LIGHTNINGCSS_VERSION }} https://github.com/parcel-bundler/lightningcss lightningcss
       - name: Setup node
@@ -133,6 +134,9 @@ jobs:
           ls -alh .
           ls -alh package
           mv "package/${{ matrix.settings.binary }}" "$GITHUB_WORKSPACE/lightningcss/${{ matrix.settings.binary }}"
+      - name: Patch tests
+        working-directory: lightningcss
+        run: git apply -v ../node_test_bundle_normalize.patch
       - name: Test bindings
         working-directory: lightningcss
         run: yarn test
