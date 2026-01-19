@@ -96,7 +96,9 @@ jobs:
       - name: Update toolchain
         working-directory: ${{ env.WORKING_DIRECTORY }}
         # HACK
-        run: git apply -v ../rust-toolchain.patch
+        run: |
+          git apply -v ../rust-toolchain.patch
+          git apply -v ../remove_warnings.patch
       - name: Setup Android NDK
         if: ${{ matrix.settings.android }}
         working-directory: /tmp
@@ -197,6 +199,8 @@ jobs:
         run: |
           # HACK 1 toolchain
           git apply -v ../rust-toolchain.patch
+          # HACK 1.1 remove warnings
+          git apply -v ../remove_warnings.patch
           # HACK 2: error message changed in napi-rs
           git apply -v ../node_test_error_message.patch
           # HACK 3: support more platforms
@@ -256,7 +260,9 @@ jobs:
       - name: Update toolchain
         working-directory: ${{ env.WORKING_DIRECTORY }}
         # HACK
-        run: git apply -v ../rust-toolchain.patch
+        run: |
+          git apply -v ../rust-toolchain.patch
+          git apply -v ../remove_warnings.patch
       - name: Setup node
         uses: actions/setup-node@v6
         with:
@@ -335,7 +341,9 @@ jobs:
       - name: Update toolchain
         working-directory: ${{ env.WORKING_DIRECTORY }}
         # HACK
-        run: git apply -v ../rust-toolchain.patch
+        run: |
+          git apply -v ../rust-toolchain.patch
+          git apply -v ../remove_warnings.patch
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.settings.target }}
