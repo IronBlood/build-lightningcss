@@ -205,6 +205,7 @@ jobs:
           git apply -v ../node_test_error_message.patch
           # HACK 3: support more platforms
           git apply -v ../node_index.patch
+          git apply -v ../node_test_bundle_normalize.patch
       - name: Test and Build
         uses: cross-platform-actions/action@v0.32.0
         env:
@@ -290,6 +291,7 @@ jobs:
           git apply -v ../node_test_wasm_skip_loc.patch
           # HACK 3: inject `napi_is_arraybuffer`
           wget https://raw.githubusercontent.com/IronBlood/napi-wasm/refs/heads/napi_is_arraybuffer/index.mjs -O wasm/node_modules/napi-wasm/index.mjs
+          git apply -v ../node_test_bundle_normalize.patch
       - name: Run test (node)
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: TEST_WASM=node yarn test
@@ -421,6 +423,7 @@ jobs:
           git apply -v ../node_test_error_message.patch
           # HACK 2: support more platforms
           git apply -v ../node_index.patch
+          git apply -v ../node_test_bundle_normalize.patch
       - name: Download artifacts
         uses: actions/download-artifact@v7
         with:
@@ -467,6 +470,7 @@ jobs:
           git apply -v ../node_test_error_message.patch
           # HACK 2: support more platforms
           git apply -v ../node_index.patch
+          git apply -v ../node_test_bundle_normalize.patch
       - name: Output docker params
         id: docker
         run: |

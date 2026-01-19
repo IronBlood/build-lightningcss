@@ -1,0 +1,31 @@
+diff --git a/node/test/bundle.test.mjs b/node/test/bundle.test.mjs
+index 50d113b..44ea609 100644
+--- a/node/test/bundle.test.mjs
++++ b/node/test/bundle.test.mjs
+@@ -4,6 +4,8 @@ import { test } from 'uvu';
+ import * as assert from 'uvu/assert';
+ import {webcrypto as crypto} from 'node:crypto';
+ 
++const normalizePath = (filePath) => path.posix.normalize(filePath.replace(/\\/g, '/'));
++
+ let bundleAsync;
+ if (process.env.TEST_WASM === 'node') {
+   bundleAsync = (await import('../../wasm/wasm-node.mjs')).bundleAsync;
+@@ -50,7 +52,7 @@ test('resolver', async () => {
+     filename: 'foo.css',
+     resolver: {
+       read(file) {
+-        const result = inMemoryFs.get(path.normalize(file));
++        const result = inMemoryFs.get(normalizePath(file));
+         if (!result) throw new Error(`Could not find ${file} in ${Array.from(inMemoryFs.keys()).join(', ')}.`);
+         return result;
+       },
+@@ -101,7 +103,7 @@ test('only custom read', async () => {
+     filename: 'foo.css',
+     resolver: {
+       read(file) {
+-        const result = inMemoryFs.get(path.normalize(file));
++        const result = inMemoryFs.get(normalizePath(file));
+         if (!result) throw new Error(`Could not find ${file} in ${Array.from(inMemoryFs.keys()).join(', ')}.`);
+         return result;
+       },
