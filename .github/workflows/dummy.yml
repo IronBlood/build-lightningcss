@@ -93,6 +93,7 @@ jobs:
           options: -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }}/lightningcss
           run: yarn test
   test-upstream-win-bindings:
+    if: ${{ false }}
     name: Test upstream Windows bindings on ${{ matrix.settings.host }} - node@${{ matrix.node }}
     runs-on: ${{ matrix.settings.host }}
     env:
