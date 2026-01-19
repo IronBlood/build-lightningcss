@@ -232,7 +232,8 @@ jobs:
             mv node/index.js.bak node/index.js
             yarn test
             cargo build --release --features cli
-            CARGO_TERM_COLOR=always RUST_BACKTRACE=full cargo test --all-features
+            # HACK bypass the racing condition for now see issue 8
+            RAYON_NUM_THREADS=1 CARGO_TERM_COLOR=always RUST_BACKTRACE=full cargo test --all-features
             mv target/release/lightningcss lightningcss
             node -e "require('.')"
             ./lightningcss --help
