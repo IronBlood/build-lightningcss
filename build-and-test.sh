@@ -26,24 +26,28 @@ if [ -z "$threads" ]; then
 	threads=1
 fi
 
-ok=true
+ok_single=true
 for i in $(seq 1 200); do
 	if ! RAYON_NUM_THREADS="1" "$test_bin" --exact bundler::tests::test_bundle --test-threads=1 > /tmp/bundler-test.log 2>&1; then
 		echo "bundler::tests::test_bundle (RAYON_NUM_THREADS=1) failed on iteration $i"
-		ok=false
+		cat /tmp/bundler-test.log
+		ok_single=false
 		break
 	fi
 done
 
-ok=true
+ok_multi=true
 for i in $(seq 1 200); do
 	if ! RAYON_NUM_THREADS="$threads" "$test_bin" --exact bundler::tests::test_bundle --test-threads=1 > /tmp/bundler-test.log 2>&1; then
 		echo "bundler::tests::test_bundle (RAYON_NUM_THREADS=$threads) failed on iteration $i"
-		ok=false
+		cat /tmp/bundler-test.log
+		ok_multi=false
 		break
 	fi
 done
 
-if [ "$ok" = true ]; then
-	echo "bundler::tests::test_bundle passed 200 iterations"
+if [ "$ok_single" = true ] && [ "$ok_multi" = true ]; then
+	exit 0
+else
+	exit 1
 fi
