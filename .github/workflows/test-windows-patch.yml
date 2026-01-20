@@ -4,22 +4,41 @@ on:
 
 jobs:
   test-upstream-win-rust:
-    env:
-      TARGET: x86_64-pc-windows-msvc
+    name: ${{ matrix.patch.name }} / ${{ matrix.target }}
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-pc-windows-msvc
+        patch:
+          - name: no-patch
+            apply: false
+          - name: with-patch
+            apply: true
     steps:
       - uses: actions/checkout@v6
       - name: Clone upstream
-        run: git clone --depth 1 --branch v1.30.2 https://github.com/parcel-bundler/lightningcss lightningcss
+        run: |
+          git clone --depth 1 --branch v1.30.2 https://github.com/parcel-bundler/lightningcss lightningcss
+          git -C lightningcss rev-parse HEAD
+          git -C lightningcss status
       - name: Apply Windows patch
+        if: ${{ matrix.patch.apply }}
         working-directory: lightningcss
         run: |
           git apply -v ../windows.patch
           git status
+          git diff --stat
           git diff
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ env.TARGET }}
+          targets: ${{ matrix.target }}
+      - name: Print Rust toolchain
+        working-directory: lightningcss
+        run: |
+          rustc -Vv
+          cargo -V
       - name: Cargo test
         working-directory: lightningcss
-        run: cargo test --all-features --target ${{ env.TARGET }} --no-fail-fast
+        run: cargo test --all-features --target ${{ matrix.target }} --no-fail-fast
