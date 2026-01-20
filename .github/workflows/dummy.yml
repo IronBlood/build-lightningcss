@@ -179,7 +179,7 @@ jobs:
         env:
           LIGHTNINGCSS_DEBUG_PATHS: 1
         run: |
-          target/debug/lightningcss ../test.css --css-modules 2>debug.info
+          target/debug/lightningcss.exe ../test.css --css-modules 2>debug.info
           cat debug.info
       - name: Cargo test
         working-directory: lightningcss
