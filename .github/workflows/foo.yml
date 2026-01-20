@@ -7,5 +7,5 @@ jobs:
     runs-on: windows-latest
     steps:
       - run: |
-          git config --global --get core.autocrlf
-          git config --global --get core.eol
+          git config --global --get core.autocrlf || echo "(unset)"
+          git config --global --get core.eol || echo "(unset)"
