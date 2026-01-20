@@ -172,14 +172,15 @@ jobs:
         working-directory: lightningcss
         run: |
           rustup target add ${{ matrix.settings.target }}
-          cargo test --all-features --no-run --target ${{ matrix.settings.target }} --no-fail-fast
+          cargo test --all-features --no-run --target ${{ matrix.settings.target }}
       - name: Run CLI manually
         shell: bash
         working-directory: lightningcss
         env:
           LIGHTNINGCSS_DEBUG_PATHS: 1
         run: |
-          target/debug/lightningcss.exe ../test.css --css-modules 2>debug.info
+          file target/${{ matrix.settings.target }}/debug/lightningcss.exe
+          target/${{ matrix.settings.target }}/debug/lightningcss.exe ../test.css --css-modules 2>debug.info
           cat debug.info
       - name: Cargo test
         working-directory: lightningcss
