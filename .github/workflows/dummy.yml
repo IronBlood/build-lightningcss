@@ -160,6 +160,10 @@ jobs:
     steps:
       - name: Clone upstream
         run: git clone --depth 1 --branch ${{ matrix.ref }} https://github.com/parcel-bundler/lightningcss lightningcss
+      - name: Apply Windows patch
+        if: ${{ matrix.ref == 'v1.30.2' }}
+        working-directory: lightningcss
+        run: git apply -v ../windows.patch
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.settings.target }}
