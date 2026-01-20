@@ -158,6 +158,7 @@ jobs:
           - host: windows-11-arm
             target: aarch64-pc-windows-msvc
     steps:
+      - uses: actions/checkout@v6
       - name: Clone upstream
         run: git clone --depth 1 --branch ${{ matrix.ref }} https://github.com/parcel-bundler/lightningcss lightningcss
       - name: Apply Windows patch
