@@ -170,8 +170,13 @@ jobs:
           targets: ${{ matrix.settings.target }}
       - name: Cargo test (Build)
         working-directory: lightningcss
+        env:
+          CARGO_TERM_COLOR: always
+          RUST_BACKTRACE: full
+          RUSTFLAGS: -D warnings
         run: |
           rustup target add ${{ matrix.settings.target }}
+          cargo clean
           cargo test --all-features --no-run --target ${{ matrix.settings.target }}
       - name: Run CLI manually
         shell: bash
