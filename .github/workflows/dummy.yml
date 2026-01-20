@@ -164,7 +164,10 @@ jobs:
       - name: Apply Windows patch
         if: ${{ matrix.ref == 'v1.30.2' }}
         working-directory: lightningcss
-        run: git apply -v ../windows.patch
+        run: |
+          git apply -v ../windows.patch
+          git status
+          git diff
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.settings.target }}
