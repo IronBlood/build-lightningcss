@@ -169,4 +169,4 @@ jobs:
           CARGO_TERM_COLOR: always
           RUST_BACKTRACE: full
           RUSTFLAGS: -D warnings
-        run: cargo test --all-features --target ${{ matrix.settings.target }}
+        run: cargo test --all-features --target ${{ matrix.settings.target }} --no-fail-fast
