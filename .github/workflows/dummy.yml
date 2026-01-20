@@ -175,13 +175,14 @@ jobs:
           cargo test --all-features --no-run --target ${{ matrix.settings.target }}
       - name: Run CLI manually
         shell: bash
-        working-directory: lightningcss
+        working-directory: data/css_modules_infer_output_file
         env:
           LIGHTNINGCSS_DEBUG_PATHS: 1
         run: |
-          file target/${{ matrix.settings.target }}/debug/lightningcss.exe
-          target/${{ matrix.settings.target }}/debug/lightningcss.exe ../test.css --css-modules 2>debug.info
+          file ../../lightningcss/target/${{ matrix.settings.target }}/debug/lightningcss.exe
+          ../../lightningcss/target/${{ matrix.settings.target }}/debug/lightningcss.exe test.css --css-modules -o out.css 2>debug.info
           cat debug.info
+          cat out.css
       - name: Cargo test
         working-directory: lightningcss
         env:
