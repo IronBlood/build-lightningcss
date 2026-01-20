@@ -1,0 +1,25 @@
+      .foo {
+        color: red;
+      }
+
+      #id {
+        animation: 2s test;
+      }
+
+      @keyframes test {
+        from { color: red }
+        to { color: yellow }
+      }
+
+      @counter-style circles {
+        symbols: Ⓐ Ⓑ Ⓒ;
+      }
+
+      ul {
+        list-style: circles;
+      }
+
+      @keyframes fade {
+        from { opacity: 0 }
+        to { opacity: 1 }
+      }
