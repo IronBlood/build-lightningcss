@@ -168,6 +168,19 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.settings.target }}
+      - name: Cargo test (Build)
+        working-directory: lightningcss
+        run: |
+          rustup target add ${{ matrix.settings.target }}
+          cargo test --all-features --no-run --target ${{ matrix.settings.target }} --no-fail-fast
+      - name: Run CLI manually
+        shell: bash
+        working-directory: lightningcss
+        env:
+          LIGHTNINGCSS_DEBUG_PATHS: 1
+        run: |
+          target/debug/lightningcss ../test.css --css-modules 2>debug.info
+          cat debug.info
       - name: Cargo test
         working-directory: lightningcss
         env:
@@ -175,5 +188,4 @@ jobs:
           RUST_BACKTRACE: full
           RUSTFLAGS: -D warnings
         run: |
-          rustup target add ${{ matrix.settings.target }}
           cargo test --all-features --target ${{ matrix.settings.target }} --no-fail-fast
