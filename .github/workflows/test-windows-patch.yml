@@ -4,33 +4,17 @@ on:
 
 jobs:
   test-upstream-win-rust:
-    name: ${{ matrix.patch.name }} / ${{ matrix.target }}
     runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
         target:
           - x86_64-pc-windows-msvc
-        patch:
-          - name: no-patch
-            apply: false
-          - name: with-patch
-            apply: true
     steps:
       - uses: actions/checkout@v6
       - name: Clone upstream
         run: |
-          git clone --depth 1 --branch v1.30.2 https://github.com/parcel-bundler/lightningcss lightningcss
-          git -C lightningcss rev-parse HEAD
-          git -C lightningcss status
-      - name: Apply Windows patch
-        if: ${{ matrix.patch.apply }}
-        working-directory: lightningcss
-        run: |
-          git apply -v ../windows.patch
-          git status
-          git diff --stat
-          git diff
+          git clone --depth 1 --branch windows-patched https://github.com/IronBlood/lightningcss lightningcss
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
