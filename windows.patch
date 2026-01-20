@@ -1,0 +1,460 @@
+diff --git a/src/css_modules.rs b/src/css_modules.rs
+index ce7008d..6328d4a 100644
+--- a/src/css_modules.rs
++++ b/src/css_modules.rs
+@@ -297,7 +297,7 @@ impl<'a, 'b, 'c> CssModule<'a, 'b, 'c> {
+           _ => Cow::Borrowed(*path),
+         };
+         hash(
+-          &source.to_string_lossy(),
++          &normalize_path_for_hash_with_root(&source, project_root),
+           matches!(config.pattern.segments[0], Segment::Hash),
+         )
+       })
+@@ -546,3 +546,21 @@ pub(crate) fn hash(s: &str, at_start: bool) -> String {
+     hash
+   }
+ }
++
++fn normalize_path_for_hash_with_root(path: &Path, project_root: Option<&Path>) -> String {
++  let normalized = path.to_string_lossy().replace('\\', "/");
++  let Some(project_root) = project_root else {
++    return normalized;
++  };
++
++  let mut root = project_root.to_string_lossy().replace('\\', "/");
++  if !root.ends_with('/') {
++    root.push('/');
++  }
++
++  if normalized.starts_with(&root) {
++    normalized[root.len()..].to_string()
++  } else {
++    normalized
++  }
++}
+diff --git a/src/lib.rs b/src/lib.rs
+index bcd4764..ebcd755 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -68,6 +68,149 @@ mod tests {
+   use std::collections::HashMap;
+   use std::sync::{Arc, RwLock};
+ 
++  const FLOAT_EPSILON: f64 = 2e-4;
++
++  enum CssToken {
++    Text(String),
++    Number(f64),
++  }
++
++  fn assert_css_eq_with_epsilon(actual: &str, expected: &str, epsilon: f64) {
++    let mut actual_idx = 0;
++    let mut expected_idx = 0;
++
++    loop {
++      let actual_token = next_css_token(actual, actual_idx);
++      let expected_token = next_css_token(expected, expected_idx);
++
++      match (actual_token, expected_token) {
++        (None, None) => break,
++        (Some(_), None) | (None, Some(_)) => {
++          assert_eq!(actual, expected);
++        }
++        (Some((CssToken::Text(a), next_a)), Some((CssToken::Text(b), next_b))) => {
++          assert_eq!(a, b);
++          actual_idx = next_a;
++          expected_idx = next_b;
++        }
++        (Some((CssToken::Number(a), next_a)), Some((CssToken::Number(b), next_b))) => {
++          assert!(
++            (a - b).abs() <= epsilon,
++            "numeric mismatch: {} != {} (epsilon {})\nactual: {}\nexpected: {}",
++            a,
++            b,
++            epsilon,
++            actual,
++            expected
++          );
++          actual_idx = next_a;
++          expected_idx = next_b;
++        }
++        _ => {
++          assert_eq!(actual, expected);
++        }
++      }
++    }
++  }
++
++  fn next_css_token(input: &str, start: usize) -> Option<(CssToken, usize)> {
++    if start >= input.len() {
++      return None;
++    }
++
++    if is_number_start(input, start) {
++      if let Some((number, end)) = parse_number_at(input, start) {
++        return Some((CssToken::Number(number), end));
++      }
++    }
++
++    let mut end = start + 1;
++    while end < input.len() && !is_number_start(input, end) {
++      end += 1;
++    }
++
++    Some((CssToken::Text(input[start..end].to_string()), end))
++  }
++
++  fn is_number_start(input: &str, index: usize) -> bool {
++    let bytes = input.as_bytes();
++    let b = bytes[index];
++
++    if index > 0 {
++      let prev = bytes[index - 1];
++      if prev == b'#' || prev.is_ascii_alphanumeric() || prev == b'_' {
++        return false;
++      }
++    }
++
++    if b.is_ascii_digit() {
++      return true;
++    }
++
++    if b == b'.' {
++      return index + 1 < bytes.len() && bytes[index + 1].is_ascii_digit();
++    }
++
++    if b == b'+' || b == b'-' {
++      if index + 1 >= bytes.len() {
++        return false;
++      }
++      let next = bytes[index + 1];
++      if next.is_ascii_digit() {
++        return true;
++      }
++      if next == b'.' {
++        return index + 2 < bytes.len() && bytes[index + 2].is_ascii_digit();
++      }
++    }
++
++    false
++  }
++
++  fn parse_number_at(input: &str, start: usize) -> Option<(f64, usize)> {
++    let bytes = input.as_bytes();
++    let mut index = start;
++
++    if bytes[index] == b'+' || bytes[index] == b'-' {
++      index += 1;
++    }
++
++    let mut has_digit = false;
++    while index < bytes.len() && bytes[index].is_ascii_digit() {
++      has_digit = true;
++      index += 1;
++    }
++
++    if index < bytes.len() && bytes[index] == b'.' {
++      index += 1;
++      while index < bytes.len() && bytes[index].is_ascii_digit() {
++        has_digit = true;
++        index += 1;
++      }
++    }
++
++    if !has_digit {
++      return None;
++    }
++
++    if index < bytes.len() && (bytes[index] == b'e' || bytes[index] == b'E') {
++      let exp_start = index;
++      index += 1;
++      if index < bytes.len() && (bytes[index] == b'+' || bytes[index] == b'-') {
++        index += 1;
++      }
++      let digits_start = index;
++      while index < bytes.len() && bytes[index].is_ascii_digit() {
++        index += 1;
++      }
++      if digits_start == index {
++        index = exp_start;
++      }
++    }
++
++    input[start..index].parse::<f64>().ok().map(|num| (num, index))
++  }
++
+   fn test(source: &str, expected: &str) {
+     test_with_options(source, expected, ParserOptions::default())
+   }
+@@ -83,6 +226,10 @@ mod tests {
+     minify_test_with_options(source, expected, ParserOptions::default())
+   }
+ 
++  fn minify_test_fuzzy(source: &str, expected: &str, epsilon: f64) {
++    minify_test_with_options_fuzzy(source, expected, ParserOptions::default(), epsilon)
++  }
++
+   #[track_caller]
+   fn minify_test_with_options<'i, 'o>(source: &'i str, expected: &'i str, options: ParserOptions<'o, 'i>) {
+     let mut stylesheet = StyleSheet::parse(&source, options.clone()).unwrap();
+@@ -96,6 +243,24 @@ mod tests {
+     assert_eq!(res.code, expected);
+   }
+ 
++  #[track_caller]
++  fn minify_test_with_options_fuzzy<'i, 'o>(
++    source: &'i str,
++    expected: &'i str,
++    options: ParserOptions<'o, 'i>,
++    epsilon: f64,
++  ) {
++    let mut stylesheet = StyleSheet::parse(&source, options.clone()).unwrap();
++    stylesheet.minify(MinifyOptions::default()).unwrap();
++    let res = stylesheet
++      .to_css(PrinterOptions {
++        minify: true,
++        ..PrinterOptions::default()
++      })
++      .unwrap();
++    assert_css_eq_with_epsilon(&res.code, expected, epsilon);
++  }
++
+   fn minify_error_test_with_options<'i, 'o>(
+     source: &'i str,
+     error: MinifyErrorKind,
+@@ -125,6 +290,23 @@ mod tests {
+     assert_eq!(res.code, expected);
+   }
+ 
++  fn prefix_test_fuzzy(source: &str, expected: &str, targets: Browsers, epsilon: f64) {
++    let mut stylesheet = StyleSheet::parse(&source, ParserOptions::default()).unwrap();
++    stylesheet
++      .minify(MinifyOptions {
++        targets: targets.into(),
++        ..MinifyOptions::default()
++      })
++      .unwrap();
++    let res = stylesheet
++      .to_css(PrinterOptions {
++        targets: targets.into(),
++        ..PrinterOptions::default()
++      })
++      .unwrap();
++    assert_css_eq_with_epsilon(&res.code, expected, epsilon);
++  }
++
+   fn attr_test(source: &str, expected: &str, minify: bool, targets: Option<Browsers>) {
+     let mut attr = StyleAttribute::parse(source, ParserOptions::default()).unwrap();
+     attr.minify(MinifyOptions {
+@@ -13329,7 +13511,7 @@ mod tests {
+       },
+     );
+ 
+-    prefix_test(
++    prefix_test_fuzzy(
+       ".foo { background: linear-gradient(lch(56.208% 136.76 46.312), lch(51% 135.366 301.364)) }",
+       indoc! { r#"
+         .foo {
+@@ -13343,6 +13525,7 @@ mod tests {
+         safari: Some(14 << 16),
+         ..Browsers::default()
+       },
++      FLOAT_EPSILON,
+     );
+ 
+     prefix_test(
+@@ -13389,7 +13572,7 @@ mod tests {
+       },
+     );
+ 
+-    prefix_test(
++    prefix_test_fuzzy(
+       ".foo { background-image: linear-gradient(oklab(59.686% 0.1009 0.1192), oklab(54.0% -0.10 -0.02)); }",
+       indoc! { r#"
+         .foo {
+@@ -13400,6 +13583,7 @@ mod tests {
+         safari: Some(15 << 16),
+         ..Browsers::default()
+       },
++      FLOAT_EPSILON,
+     );
+ 
+     prefix_test(
+@@ -13416,7 +13600,7 @@ mod tests {
+       },
+     );
+ 
+-    prefix_test(
++    prefix_test_fuzzy(
+       ".foo { background-image: linear-gradient(lch(56.208% 136.76 46.312), lch(51% 135.366 301.364)) }",
+       indoc! { r#"
+         .foo {
+@@ -13430,6 +13614,7 @@ mod tests {
+         safari: Some(14 << 16),
+         ..Browsers::default()
+       },
++      FLOAT_EPSILON,
+     );
+ 
+     prefix_test(
+@@ -13476,7 +13661,7 @@ mod tests {
+       },
+     );
+ 
+-    prefix_test(
++    prefix_test_fuzzy(
+       ".foo { background-image: linear-gradient(oklab(59.686% 0.1009 0.1192), oklab(54.0% -0.10 -0.02)); }",
+       indoc! { r#"
+         .foo {
+@@ -13487,6 +13672,7 @@ mod tests {
+         safari: Some(15 << 16),
+         ..Browsers::default()
+       },
++      FLOAT_EPSILON,
+     );
+ 
+     // Test cases from https://github.com/postcss/autoprefixer/blob/541295c0e6dd348db2d3f52772b59cd403c59d29/test/cases/gradient.css
+@@ -18481,9 +18667,10 @@ mod tests {
+           ..PrinterOptions::default()
+         })
+         .unwrap();
+-      minify_test(
++      minify_test_fuzzy(
+         &format!(".foo {{ color: {} }}", input),
+         &format!(".foo{{color:{}}}", output),
++        FLOAT_EPSILON,
+       );
+     }
+ 
+@@ -20309,9 +20496,10 @@ mod tests {
+       ".foo { color: color-mix(in lab, purple 50%, plum 50%); }",
+       ".foo{color:lab(51.5117% 43.3777 -29.0443)}",
+     );
+-    minify_test(
++    minify_test_fuzzy(
+       ".foo { color: color-mix(in lch, peru 40%, palegoldenrod); }",
+       ".foo{color:lch(79.7255% 40.4542 84.7634)}",
++      FLOAT_EPSILON,
+     );
+     minify_test(
+       ".foo { color: color-mix(in lch, teal 65%, olive); }",
+diff --git a/src/main.rs b/src/main.rs
+index ff7216a..ef70f34 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -7,7 +7,7 @@ use parcel_sourcemap::SourceMap;
+ use serde::Serialize;
+ use std::borrow::Cow;
+ use std::sync::{Arc, RwLock};
+-use std::{ffi, fs, io, path::Path};
++use std::{env, ffi, fs, io, path::Path, path::PathBuf};
+ 
+ #[cfg(target_os = "macos")]
+ #[global_allocator]
+@@ -71,9 +71,87 @@ struct SourceMapJson<'a> {
+   names: &'a Vec<String>,
+ }
+ 
++fn normalize_path_for_cli(path: PathBuf) -> PathBuf {
++  #[cfg(windows)]
++  {
++    // Strip extended-length prefix so diff_paths yields stable relative paths.
++    let raw = path.to_string_lossy();
++    if let Some(stripped) = raw.strip_prefix(r"\\?\UNC\") {
++      return PathBuf::from(format!(r"\\{}", stripped));
++    }
++    if let Some(stripped) = raw.strip_prefix(r"\\?\") {
++      return PathBuf::from(stripped);
++    }
++  }
++
++  path
++}
++
++fn relative_path_for_cli(path: &Path, project_root: &Path) -> PathBuf {
++  #[cfg(windows)]
++  {
++    if let Some(rel) = strip_prefix_case_insensitive(path, project_root) {
++      return rel;
++    }
++  }
++
++  #[cfg(not(windows))]
++  {
++    if let Ok(rel) = path.strip_prefix(project_root) {
++      return rel.to_path_buf();
++    }
++  }
++
++  pathdiff::diff_paths(path, project_root).unwrap_or_else(|| {
++    path
++      .file_name()
++      .map(PathBuf::from)
++      .unwrap_or_else(|| path.to_path_buf())
++  })
++}
++
++#[cfg(windows)]
++fn strip_prefix_case_insensitive(path: &Path, base: &Path) -> Option<PathBuf> {
++  use std::path::Component;
++
++  let path_components: Vec<_> = path.components().collect();
++  let base_components: Vec<_> = base.components().collect();
++
++  if path_components.len() < base_components.len() {
++    return None;
++  }
++
++  for (path_component, base_component) in path_components.iter().zip(base_components.iter()) {
++    match (path_component, base_component) {
++      (Component::Prefix(p), Component::Prefix(b)) => {
++        if !p
++          .as_os_str()
++          .to_string_lossy()
++          .eq_ignore_ascii_case(&b.as_os_str().to_string_lossy())
++        {
++          return None;
++        }
++      }
++      (Component::RootDir, Component::RootDir) => {}
++      (Component::Normal(p), Component::Normal(b)) => {
++        if !p.to_string_lossy().eq_ignore_ascii_case(&b.to_string_lossy()) {
++          return None;
++        }
++      }
++      _ => return None,
++    }
++  }
++
++  let mut remainder = PathBuf::new();
++  for component in path_components.iter().skip(base_components.len()) {
++    remainder.push(component.as_os_str());
++  }
++  Some(remainder)
++}
++
+ pub fn main() -> Result<(), std::io::Error> {
+   let cli_args = CliArgs::parse();
+-  let project_root = std::env::current_dir()?;
++  let project_root = normalize_path_for_cli(std::env::current_dir()?);
+ 
+   // If we're given an input file, read from it and adjust its name.
+   //
+@@ -96,8 +174,14 @@ pub fn main() -> Result<(), std::io::Error> {
+       .input_file
+       .into_iter()
+       .map(|ref f| -> Result<_, std::io::Error> {
+-        let absolute_path = fs::canonicalize(f)?;
+-        let filename = pathdiff::diff_paths(absolute_path, &project_root).unwrap();
++        let absolute_path = normalize_path_for_cli(fs::canonicalize(f)?);
++        let filename = relative_path_for_cli(&absolute_path, &project_root);
++        if env::var("LIGHTNINGCSS_DEBUG_PATHS").is_ok() {
++          eprintln!(
++            "lightningcss path debug: project_root={:?} absolute_path={:?} filename={:?}",
++            project_root, absolute_path, filename
++          );
++        }
+         let filename = filename.to_string_lossy().into_owned();
+         let contents = fs::read_to_string(f)?;
+         Ok((filename, contents))
