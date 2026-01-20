@@ -93,12 +93,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/checkout-repo
-      - name: Update toolchain
+      - name: Update toolchain and apply patches
         working-directory: ${{ env.WORKING_DIRECTORY }}
         # HACK
         run: |
           git apply -v ../rust-toolchain.patch
           git apply -v ../remove_warnings.patch
+          git apply -v ../windows.patch
       - name: Setup Android NDK
         if: ${{ matrix.settings.android }}
         working-directory: /tmp
@@ -206,6 +207,7 @@ jobs:
           # HACK 3: support more platforms
           git apply -v ../node_index.patch
           git apply -v ../node_test_bundle_normalize.patch
+          git apply -v ../windows.patch
       - name: Test and Build
         uses: cross-platform-actions/action@v0.32.0
         env:
@@ -264,6 +266,7 @@ jobs:
         run: |
           git apply -v ../rust-toolchain.patch
           git apply -v ../remove_warnings.patch
+          git apply -v ../windows.patch
       - name: Setup node
         uses: actions/setup-node@v6
         with:
@@ -346,6 +349,7 @@ jobs:
         run: |
           git apply -v ../rust-toolchain.patch
           git apply -v ../remove_warnings.patch
+          git apply -v ../windows.patch
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.settings.target }}

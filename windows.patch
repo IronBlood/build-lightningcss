@@ -340,7 +340,7 @@ index bcd4764..ebcd755 100644
      minify_test(
        ".foo { color: color-mix(in lch, teal 65%, olive); }",
 diff --git a/src/main.rs b/src/main.rs
-index ff7216a..ef70f34 100644
+index ff7216a..693d710 100644
 --- a/src/main.rs
 +++ b/src/main.rs
 @@ -7,7 +7,7 @@ use parcel_sourcemap::SourceMap;
@@ -348,7 +348,7 @@ index ff7216a..ef70f34 100644
  use std::borrow::Cow;
  use std::sync::{Arc, RwLock};
 -use std::{ffi, fs, io, path::Path};
-+use std::{env, ffi, fs, io, path::Path, path::PathBuf};
++use std::{ffi, fs, io, path::Path, path::PathBuf};
  
  #[cfg(target_os = "macos")]
  #[global_allocator]
@@ -441,7 +441,7 @@ index ff7216a..ef70f34 100644
  
    // If we're given an input file, read from it and adjust its name.
    //
-@@ -96,8 +174,14 @@ pub fn main() -> Result<(), std::io::Error> {
+@@ -96,8 +174,8 @@ pub fn main() -> Result<(), std::io::Error> {
        .input_file
        .into_iter()
        .map(|ref f| -> Result<_, std::io::Error> {
@@ -449,12 +449,6 @@ index ff7216a..ef70f34 100644
 -        let filename = pathdiff::diff_paths(absolute_path, &project_root).unwrap();
 +        let absolute_path = normalize_path_for_cli(fs::canonicalize(f)?);
 +        let filename = relative_path_for_cli(&absolute_path, &project_root);
-+        if env::var("LIGHTNINGCSS_DEBUG_PATHS").is_ok() {
-+          eprintln!(
-+            "lightningcss path debug: project_root={:?} absolute_path={:?} filename={:?}",
-+            project_root, absolute_path, filename
-+          );
-+        }
          let filename = filename.to_string_lossy().into_owned();
          let contents = fs::read_to_string(f)?;
          Ok((filename, contents))
