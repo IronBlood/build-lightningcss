@@ -370,6 +370,7 @@ jobs:
         env:
           CARGO_TERM_COLOR: always
           RUST_BACKTRACE: full
+          RAYON_NUM_THREADS: 1
         run: cargo test --all-features --target ${{ matrix.settings.target }}
       - name: Cargo test (customized test commands)
         if: ${{ matrix.settings.test }}
@@ -377,6 +378,7 @@ jobs:
         env:
           CARGO_TERM_COLOR: always
           RUST_BACKTRACE: full
+          RAYON_NUM_THREADS: 1
         run: ${{ matrix.settings.test }}
 
   test-js-win-mac:
