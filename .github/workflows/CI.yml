@@ -77,14 +77,26 @@ jobs:
             strip: llvm-strip
             android_home: /tmp/android-ndk-r28
             build_cli: CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=/tmp/android-ndk-r28/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang cargo build --release --features cli --target aarch64-linux-android
-            setup: sudo apt update && sudo apt install llvm
+            setup: sudo apt update && sudo apt install -y llvm
           - os: ubuntu-latest
             android: true
             target: armv7-linux-androideabi
             strip: llvm-strip
             android_home: /tmp/android-ndk-r28
             build_cli: CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER=/tmp/android-ndk-r28/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang cargo build --release --features cli --target armv7-linux-androideabi
-            setup: sudo apt update && sudo apt install llvm
+            setup: sudo apt update && sudo apt install -y llvm
+          - os: ubuntu-latest
+            target: powerpc64le-unknown-linux-gnu
+            strip: llvm-strip
+            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target powerpc64le-unknown-linux-gnu
+            build_cli: CARGO_TARGET_POWERPC64LE_UNKNOWN_LINUX_GNU_LINKER=powerpc64le-linux-gnu-gcc cargo build --release --features cli --target powerpc64le-unknown-linux-gnu
+            setup: sudo apt update && sudo apt install -y gcc-powerpc64le-linux-gnu libc6-dev-ppc64el-cross llvm
+          - os: ubuntu-latest
+            target: s390x-unknown-linux-gnu
+            strip: llvm-strip
+            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target s390x-unknown-linux-gnu
+            build_cli: CARGO_TARGET_S390X_UNKNOWN_LINUX_GNU_LINKER=s390x-linux-gnu-gcc cargo build --release --features cli --target s390x-unknown-linux-gnu
+            setup: sudo apt update && sudo apt install -y gcc-s390x-linux-gnu libc6-dev-s390x-cross llvm
 
     name: build-${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.os }}
