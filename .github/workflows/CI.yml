@@ -97,6 +97,18 @@ jobs:
             build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target s390x-unknown-linux-gnu
             build_cli: CARGO_TARGET_S390X_UNKNOWN_LINUX_GNU_LINKER=s390x-linux-gnu-gcc cargo build --release --features cli --target s390x-unknown-linux-gnu
             setup: sudo apt update && sudo apt install -y gcc-s390x-linux-gnu libc6-dev-s390x-cross llvm
+          - os: ubuntu-latest
+            target: riscv64gc-unknown-linux-gnu
+            strip: llvm-strip
+            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target riscv64gc-unknown-linux-gnu
+            build_cli: CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER=riscv64-linux-gnu-gcc cargo build --release --features cli --target riscv64gc-unknown-linux-gnu
+            setup: sudo apt update && sudo apt install -y gcc-riscv64-linux-gnu libc6-dev-riscv64-cross llvm
+          - os: ubuntu-latest
+            target: riscv64gc-unknown-linux-musl
+            strip: llvm-strip
+            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target riscv64gc-unknown-linux-musl -x
+            build_cli: cargo zigbuild --release --features cli --target riscv64gc-unknown-linux-musl
+            setup: sudo apt update && sudo apt install -y gcc-riscv64-linux-gnu libc6-dev-riscv64-cross llvm
 
     name: build-${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.os }}
