@@ -21,6 +21,7 @@ jobs:
         with:
           operating_system: ${{ matrix.os.name }}
           architecture: ${{ matrix.os.architecture }}
+          version: ${{ matrix.os.version }}
           shell: bash
           run: |
             sudo pkg install -y rust
