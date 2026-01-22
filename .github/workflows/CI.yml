@@ -117,13 +117,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/checkout-repo
-      - name: Update toolchain and apply patches
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        # HACK
-        run: |
-          git apply -v ../rust-toolchain.patch
-          git apply -v ../remove_warnings.patch
-          git apply -v ../windows.patch
       - name: Setup Android NDK
         if: ${{ matrix.settings.android }}
         working-directory: /tmp
@@ -219,19 +212,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/checkout-repo
-      - name: Update toolchain
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: |
-          # HACK 1 toolchain
-          git apply -v ../rust-toolchain.patch
-          # HACK 1.1 remove warnings
-          git apply -v ../remove_warnings.patch
-          # HACK 2: error message changed in napi-rs
-          git apply -v ../node_test_error_message.patch
-          # HACK 3: support more platforms
-          git apply -v ../node_index.patch
-          git apply -v ../node_test_bundle_normalize.patch
-          git apply -v ../windows.patch
       - name: Test and Build
         uses: cross-platform-actions/action@v0.32.0
         env:
@@ -284,13 +264,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/checkout-repo
-      - name: Update toolchain
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        # HACK
-        run: |
-          git apply -v ../rust-toolchain.patch
-          git apply -v ../remove_warnings.patch
-          git apply -v ../windows.patch
       - name: Setup node
         uses: actions/setup-node@v6
         with:
@@ -312,13 +285,8 @@ jobs:
       - name: Patch tests
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: |
-          # HACK 1: error message changed in napi-rs
-          git apply -v ../node_test_error_message.patch
-          # HACK 2: object ref dropped in wasm by napi-rs
-          git apply -v ../node_test_wasm_skip_loc.patch
-          # HACK 3: inject `napi_is_arraybuffer`
+          # HACK: inject `napi_is_arraybuffer`
           wget https://raw.githubusercontent.com/IronBlood/napi-wasm/refs/heads/napi_is_arraybuffer/index.mjs -O wasm/node_modules/napi-wasm/index.mjs
-          git apply -v ../node_test_bundle_normalize.patch
       - name: Run test (node)
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: TEST_WASM=node yarn test
@@ -367,13 +335,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/checkout-repo
-      - name: Update toolchain
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        # HACK
-        run: |
-          git apply -v ../rust-toolchain.patch
-          git apply -v ../remove_warnings.patch
-          git apply -v ../windows.patch
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.settings.target }}
@@ -446,14 +407,6 @@ jobs:
         working-directory: ${{ env.WORKING_DIRECTORY }}
         # NOTE skip installing puppeteer, doesn't support on some systems
         run: yarn install --ignore-scripts
-      - name: Patch tests and binding loader
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: |
-          # HACK 1: error message changed in napi-rs
-          git apply -v ../node_test_error_message.patch
-          # HACK 2: support more platforms
-          git apply -v ../node_index.patch
-          git apply -v ../node_test_bundle_normalize.patch
       - name: Download artifacts
         uses: actions/download-artifact@v7
         with:
@@ -493,14 +446,6 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: yarn
           cache-dependency-path: lightningcss/yarn.lock
-      - name: Patch tests and binding loader
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: |
-          # HACK 1: error message changed in napi-rs
-          git apply -v ../node_test_error_message.patch
-          # HACK 2: support more platforms
-          git apply -v ../node_index.patch
-          git apply -v ../node_test_bundle_normalize.patch
       - name: Output docker params
         id: docker
         run: |

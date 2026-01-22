@@ -1,5 +1,5 @@
 name: Checkout lightningcss
-description: Checkout the source code at a given ref
+description: Checkout the source code at a given ref, and apply patches not committed to the repo
 runs:
   using: "composite"
   steps:
@@ -10,3 +10,24 @@ runs:
         URL_REF: "pr-rc-0"
       run: |
         git clone --depth 1 --branch ${{ env.URL_REF }} ${{ env.URL_REPO }}
+    - name: Apply patches
+      shell: bash
+      working-directory: lightningcss
+      run: |
+        # HACK rust side
+        # use the latest stable toolchain
+        git apply -v ../rust-toolchain.patch
+        # some warnings complained by the latest toolchain
+        git apply -v ../remove_warnings.patch
+        # windows related name hashing, floating number
+        git apply -v ../windows.patch
+
+        # HACK node side
+        # error message changed in napi-rs
+        git apply -v ../node_test_error_message.patch
+        # object ref dropped in wasm by napi-rs
+        git apply -v ../node_test_wasm_skip_loc.patch
+        # path on windows
+        git apply -v ../node_test_bundle_normalize.patch
+        # support more platforms
+        git apply -v ../node_index.patch
