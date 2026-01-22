@@ -239,13 +239,14 @@ jobs:
             cp node/index.js node/index.js.bak
             yarn install --ignore-scripts || true
             npx napi build --release --platform --manifest-path ./node/Cargo.toml
-            strip -x node/*.node
+            strip node/*.node
             mv node/index.js.bak node/index.js
             yarn test
             cargo build --release --features cli
             # HACK bypass the racing condition for now see issue 8
             RAYON_NUM_THREADS=1 CARGO_TERM_COLOR=always RUST_BACKTRACE=full cargo test --all-features
             mv target/release/lightningcss lightningcss
+            strip lightningcss
             node -e "require('.')"
             ./lightningcss --help
             rm -rf node_modules
