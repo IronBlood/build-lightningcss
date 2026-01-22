@@ -11,11 +11,13 @@ jobs:
           - name: freebsd
             version: "14.3"
             architecture: x86-64
+            host: ubuntu-latest
           - name: freebsd
             version: "14.3"
             architecture: arm64
+            host: ubuntu-24.04-arm
     name: Show rust version on ${{ matrix.os.name }} / ${{ matrix.os.architecture }} / ${{ matrix.os.version }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os.host }}
     steps:
       - uses: cross-platform-actions/action@v0.32.0
         with:
