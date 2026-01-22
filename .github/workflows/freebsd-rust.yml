@@ -1,0 +1,27 @@
+name: Verify Rust on FreeBSD
+on:
+  workflow_dispatch:
+
+jobs:
+  check-version:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - name: freebsd
+            version: "14.3"
+            architecture: x86-64
+          - name: freebsd
+            version: "14.3"
+            architecture: arm64
+    name: Show rust version on ${{ matrix.os.name }} / ${{ matrix.os.architecture }} / ${{ matrix.os.version }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: cross-platform-actions/action@v0.32.0
+        with:
+          operating_system: ${{ matrix.os.name }}
+          architecture: ${{ matrix.os.architecture }}
+          shell: bash
+          run: |
+            sudo pkg install -y rust
+            rustc --version
