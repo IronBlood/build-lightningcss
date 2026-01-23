@@ -117,6 +117,8 @@ jobs:
             setup: |
               sudo apt update
               sudo apt install -y llvm
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-ohos
 
     name: build-${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.os }}
@@ -138,6 +140,9 @@ jobs:
           node-version: 24
           cache: "yarn"
           cache-dependency-path: lightningcss/yarn.lock
+      - name: Setup OpenHarmony SDK
+        if: ${{ contains(matrix.settings.target, 'ohos') }}
+        uses: openharmony-rs/setup-ohos-sdk@3c181b3244cec76aaec289ab84fb00f55f2fce3f # v0.2.4
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
