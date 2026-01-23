@@ -119,6 +119,8 @@ jobs:
               sudo apt install -y llvm
           - os: ubuntu-latest
             target: aarch64-unknown-linux-ohos
+            strip: /home/runner/setup-ohos-sdk/linux/native/llvm/bin/llvm-strip
+            linker: CARGO_TARGET_AARCH64_UNKNOWN_LINUX_OHOS_LINKER=/home/runner/setup-ohos-sdk/linux/native/llvm/bin/aarch64-unknown-linux-ohos-clang
 
     name: build-${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.os }}
