@@ -20,95 +20,89 @@ jobs:
           # Windows
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target x86_64-pc-windows-msvc
-            build_cli: cargo build --release --features cli --target x86_64-pc-windows-msvc
           - os: windows-latest
             target: aarch64-pc-windows-msvc
-            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target aarch64-pc-windows-msvc
-            build_cli: cargo build --release --features cli --target aarch64-pc-windows-msvc
           - os: windows-latest
             target: i686-pc-windows-msvc
-            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target i686-pc-windows-msvc
-            build_cli: cargo build --release --features cli --target i686-pc-windows-msvc
           # MacOS
           - os: macos-latest
             target: x86_64-apple-darwin
             strip: strip -x
-            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target x86_64-apple-darwin
-            build_cli: cargo build --release --features cli --target x86_64-apple-darwin
           - os: macos-latest
             target: aarch64-apple-darwin
             strip: strip -x
             jemalloc_lg_page: "14"
-            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target aarch64-apple-darwin
-            build_cli: cargo build --release --features cli --target aarch64-apple-darwin
           # Linux
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             strip: strip
-            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target x86_64-unknown-linux-gnu
-            build_cli: cargo build --release --features cli --target x86_64-unknown-linux-gnu
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
             strip: strip
-            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target x86_64-unknown-linux-musl -x
-            build_cli: cargo zigbuild --release --features cli --target x86_64-unknown-linux-musl
+            cross: zig
           - os: ubuntu-latest
             strip: llvm-strip
             target: aarch64-unknown-linux-gnu
-            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target aarch64-unknown-linux-gnu --use-napi-cross
-            build_cli: cargo build --release --features cli --target aarch64-unknown-linux-gnu
-            setup: sudo apt update && sudo apt install -y gcc-aarch64-linux-gnu llvm
+            cross: napi
+            setup: |
+              sudo apt update
+              sudo apt install -y gcc-aarch64-linux-gnu llvm
           - os: ubuntu-latest
             target: aarch64-unknown-linux-musl
             strip: llvm-strip
-            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target aarch64-unknown-linux-musl -x
-            build_cli: cargo zigbuild --release --features cli --target aarch64-unknown-linux-musl
-            setup: sudo apt update && sudo apt install -y llvm
+            cross: zig
+            setup: |
+              sudo apt update
+              sudo apt install -y llvm
           - os: ubuntu-latest
             target: armv7-unknown-linux-gnueabihf
             strip: llvm-strip
-            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target armv7-unknown-linux-gnueabihf --use-napi-cross
-            build_cli: cargo build --release --features cli --target armv7-unknown-linux-gnueabihf
-            setup: sudo apt update && sudo apt install -y gcc-arm-linux-gnueabihf llvm
+            cross: napi
+            setup: |
+              sudo apt update
+              sudo apt install -y gcc-arm-linux-gnueabihf llvm
           - os: ubuntu-latest
             android: true
             target: aarch64-linux-android
             strip: llvm-strip
             android_home: /tmp/android-ndk-r28
-            build_cli: CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=/tmp/android-ndk-r28/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang cargo build --release --features cli --target aarch64-linux-android
+            linker: CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=/tmp/android-ndk-r28/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang
             setup: sudo apt update && sudo apt install -y llvm
           - os: ubuntu-latest
             android: true
             target: armv7-linux-androideabi
             strip: llvm-strip
             android_home: /tmp/android-ndk-r28
-            build_cli: CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER=/tmp/android-ndk-r28/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang cargo build --release --features cli --target armv7-linux-androideabi
+            linker: CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER=/tmp/android-ndk-r28/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang
             setup: sudo apt update && sudo apt install -y llvm
           - os: ubuntu-latest
             target: powerpc64le-unknown-linux-gnu
             strip: llvm-strip
-            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target powerpc64le-unknown-linux-gnu
-            build_cli: CARGO_TARGET_POWERPC64LE_UNKNOWN_LINUX_GNU_LINKER=powerpc64le-linux-gnu-gcc cargo build --release --features cli --target powerpc64le-unknown-linux-gnu
-            setup: sudo apt update && sudo apt install -y gcc-powerpc64le-linux-gnu libc6-dev-ppc64el-cross llvm
+            linker: CARGO_TARGET_POWERPC64LE_UNKNOWN_LINUX_GNU_LINKER=powerpc64le-linux-gnu-gcc
+            setup: |
+              sudo apt update
+              sudo apt install -y gcc-powerpc64le-linux-gnu libc6-dev-ppc64el-cross llvm
           - os: ubuntu-latest
             target: s390x-unknown-linux-gnu
             strip: llvm-strip
-            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target s390x-unknown-linux-gnu
-            build_cli: CARGO_TARGET_S390X_UNKNOWN_LINUX_GNU_LINKER=s390x-linux-gnu-gcc cargo build --release --features cli --target s390x-unknown-linux-gnu
-            setup: sudo apt update && sudo apt install -y gcc-s390x-linux-gnu libc6-dev-s390x-cross llvm
+            linker: CARGO_TARGET_S390X_UNKNOWN_LINUX_GNU_LINKER=s390x-linux-gnu-gcc
+            setup: |
+              sudo apt update
+              sudo apt install -y gcc-s390x-linux-gnu libc6-dev-s390x-cross llvm
           - os: ubuntu-latest
             target: riscv64gc-unknown-linux-gnu
             strip: llvm-strip
-            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target riscv64gc-unknown-linux-gnu
-            build_cli: CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER=riscv64-linux-gnu-gcc cargo build --release --features cli --target riscv64gc-unknown-linux-gnu
-            setup: sudo apt update && sudo apt install -y gcc-riscv64-linux-gnu libc6-dev-riscv64-cross llvm
+            linker: CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER=riscv64-linux-gnu-gcc
+            setup: |
+              sudo apt update
+              sudo apt install -y gcc-riscv64-linux-gnu libc6-dev-riscv64-cross llvm
           - os: ubuntu-latest
             target: riscv64gc-unknown-linux-musl
             strip: llvm-strip
-            build: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target riscv64gc-unknown-linux-musl -x
-            build_cli: cargo zigbuild --release --features cli --target riscv64gc-unknown-linux-musl
-            setup: sudo apt update && sudo apt install -y gcc-riscv64-linux-gnu libc6-dev-riscv64-cross llvm
+            cross: zig
+            setup: |
+              sudo apt update
+              sudo apt install -y gcc-riscv64-linux-gnu libc6-dev-riscv64-cross llvm
 
     name: build-${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.os }}
@@ -150,12 +144,12 @@ jobs:
             ${{ env.WORKING_DIRECTORY }}/target
           key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.os }}-${{ hashFiles(format('{0}/Cargo.lock', env.WORKING_DIRECTORY)) }}
       - uses: mlugg/setup-zig@v2
-        if: ${{ contains(matrix.settings.target, 'musl') }}
+        if: ${{ matrix.settings.cross == 'zig' }}
         with:
           version: 0.14.1
       - name: Install cargo-zigbuild
         uses: taiki-e/install-action@v2
-        if: ${{ contains(matrix.settings.target, 'musl') }}
+        if: ${{ matrix.settings.cross == 'zig' }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
@@ -169,14 +163,14 @@ jobs:
         working-directory: ${{ env.WORKING_DIRECTORY }}
         env:
           JEMALLOC_SYS_WITH_LG_PAGE: ${{ matrix.settings.jemalloc_lg_page }}
-        run: ${{ matrix.settings.build }}
+        run: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }} ${{ matrix.settings.cross == 'zig' && '-x' || matrix.settings.cross == 'napi' && '--use-napi-cross' || matrix.settings.cross == 'cross' && '--use-cross' || '' }}
       - name: Build CLI
         if: ${{ !matrix.settings.android }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
         env:
           JEMALLOC_SYS_WITH_LG_PAGE: ${{ matrix.settings.jemalloc_lg_page }}
         run: |
-          ${{ matrix.settings.build_cli }}
+          ${{ matrix.settings.linker || '' }} cargo ${{ matrix.settings.cross == 'zig' && 'zigbuild' || 'build' }} --release --features cli --target ${{ matrix.settings.target }}
           node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
 
       - name: Build release (android)
@@ -191,7 +185,7 @@ jobs:
         env:
           ANDROID_NDK_LATEST_HOME: ${{ matrix.settings.android_home }}
         run: |
-          ${{ matrix.settings.build_cli }}
+          ${{ matrix.settings.linker }} cargo build --release --features cli --target ${{ matrix.settings.target }}
           node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
 
       - name: Strip debug symbols # https://github.com/rust-lang/rust/issues/46034
