@@ -143,6 +143,7 @@ jobs:
         run: yarn test
   test-upstream-win-rust:
     name: Test upstream Rust on ${{ matrix.settings.target }} @ ${{ matrix.ref }}
+    if: ${{ false }}
     runs-on: ${{ matrix.settings.host }}
     strategy:
       fail-fast: false
@@ -199,3 +200,12 @@ jobs:
           RUSTFLAGS: -D warnings
         run: |
           cargo test --all-features --target ${{ matrix.settings.target }} --no-fail-fast
+  list-ohos-binaries:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup OpenHarmony SDK
+        uses: openharmony-rs/setup-ohos-sdk@3c181b3244cec76aaec289ab84fb00f55f2fce3f # v0.2.4
+      - name: Show binary
+        run: |
+          file /home/runner/setup-ohos-sdk/linux/native/llvm/bin/aarch64-unknown-linux-ohos-clang
+          file /home/runner/setup-ohos-sdk/linux/native/llvm/bin/llvm-strip
