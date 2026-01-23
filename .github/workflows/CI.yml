@@ -201,8 +201,20 @@ jobs:
             ${{ env.WORKING_DIRECTORY }}/${{ env.BINARY_NAME }}
 
   build-freebsd:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - name: freebsd
+            version: "14.3"
+            architecture: x86-64
+            target: x86_64-unknown-freebsd
+          - name: freebsd
+            version: "14.3"
+            architecture: arm64
+            target: aarch64-unknown-freebsd
     runs-on: ubuntu-latest
-    name: Build FreeBSD
+    name: Build FreeBSD ${{ matrix.os.architecture }}
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/checkout-repo
@@ -211,8 +223,9 @@ jobs:
         env:
           RUSTUP_IO_THREADS: 1
         with:
-          operating_system: freebsd
-          version: "14.3"
+          operating_system: ${{ matrix.os.name }}
+          architecture: ${{ matrix.os.architecture }}
+          version: ${{ matrix.os.version }}
           memory: 13G
           cpu_count: 3
           environment_variables: "DEBUG RUSTUP_IO_THREADS"
@@ -231,6 +244,7 @@ jobs:
             yarn install --ignore-scripts || true
             npx napi build --release --platform --manifest-path ./node/Cargo.toml
             strip node/*.node
+            file node/*.node
             mv node/index.js.bak node/index.js
             yarn test
             cargo build --release --features cli
@@ -238,6 +252,7 @@ jobs:
             RAYON_NUM_THREADS=1 CARGO_TERM_COLOR=always RUST_BACKTRACE=full cargo test --all-features
             mv target/release/lightningcss lightningcss
             strip lightningcss
+            file lightningcss
             node -e "require('.')"
             ./lightningcss --help
             rm -rf node_modules
@@ -246,7 +261,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: bindings-x86_64-unknown-freebsd
+          name: bindings-${{ matrix.os.target }}
           path: |
             ${{ env.WORKING_DIRECTORY }}/node/*.node
             ${{ env.WORKING_DIRECTORY }}/lightningcss
