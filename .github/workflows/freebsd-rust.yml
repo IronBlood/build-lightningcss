@@ -1,4 +1,7 @@
-name: Verify Rust on FreeBSD
+name: Building on FreeBSD
+env:
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
 on:
   workflow_dispatch:
 
@@ -11,24 +14,60 @@ jobs:
           - name: freebsd
             version: "14.3"
             architecture: x86-64
-            host: ubuntu-latest
           - name: freebsd
             version: "14.3"
             architecture: arm64
-            host: ubuntu-24.04-arm
     name: Show rust version on ${{ matrix.os.name }} / ${{ matrix.os.architecture }} / ${{ matrix.os.version }}
-    runs-on: ${{ matrix.os.host }}
+    runs-on: ubuntu-latest
     steps:
-      - name: Install qemu
-        run: |
-          sudo apt update
-          sudo apt install -y ${{ matrix.os.architecture == 'x86-64' && 'qemu-system-x86' || 'qemu-system-arm' }} qemu-utils
-      - uses: IronBlood/cross-platform-action@a26499562b2d7f1d43e8981b667110ccbb0b6698
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/checkout-repo
+      - name: Create .cargo
+        run: mkdir -p .cargo
+      - name: Cache cargo
+        uses: actions/cache@v5
+        with:
+          path: |
+            .cargo/
+            lightningcss/target
+          key: ${{ matrix.os.name }}-cargo-${{ matrix.os.version }}-${{ matrix.os.architecture }}-${{ hashFiles('lightningcss/Cargo.lock') }}
+      - name: Configure sccache
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_RESULTS_URL', process.env.ACTIONS_RESULTS_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+      - uses: cross-platform-actions/action@492b0c80085400348c599edace11141a4ee73524 # v0.32.0
         with:
           operating_system: ${{ matrix.os.name }}
           architecture: ${{ matrix.os.architecture }}
           version: ${{ matrix.os.version }}
+          memory: 13G
+          cpu_count: 3
+          environment_variables: "DEBUG ACTIONS_RESULTS_URL ACTIONS_RUNTIME_TOKEN SCCACHE_GHA_ENABLED RUSTC_WRAPPER"
           shell: bash
           run: |
-            sudo pkg install -y rust
+            sudo pkg install -y rust sccache node npm yarn
             rustc --version
+            # NOTE create a symlink of .cargo
+            rm -rf "$HOME/.cargo"
+            ln -sfn "$PWD/.cargo" "$HOME/.cargo"
+            # NOTE extra step because this is the real repo
+            cd lightningcss
+            cp node/index.js node/index.js.bak
+            yarn install --ignore-scripts || true
+            npx napi build --release --platform --manifest-path ./node/Cargo.toml
+            strip node/*.node
+            file node/*.node
+            mv node/index.js.bak node/index.js
+            yarn test
+            cargo build --release --features cli
+            # HACK bypass the racing condition for now see issue 8
+            RAYON_NUM_THREADS=1 CARGO_TERM_COLOR=always RUST_BACKTRACE=full cargo test --all-features
+            mv target/release/lightningcss lightningcss
+            strip lightningcss
+            file lightningcss
+            node -e "require('.')"
+            ./lightningcss --help
+            rm -rf node_modules
+            rm -rf .yarn/cache
