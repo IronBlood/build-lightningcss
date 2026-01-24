@@ -54,6 +54,7 @@ jobs:
             ln -sfn "$PWD/.cargo" "$HOME/.cargo"
             # NOTE extra step because this is the real repo
             cd lightningcss
+            sccache --show-stats
             cp node/index.js node/index.js.bak
             yarn install --ignore-scripts || true
             npx napi build --release --platform --manifest-path ./node/Cargo.toml
@@ -69,5 +70,6 @@ jobs:
             file lightningcss
             node -e "require('.')"
             ./lightningcss --help
+            sccache --show-stats
             rm -rf node_modules
             rm -rf .yarn/cache
