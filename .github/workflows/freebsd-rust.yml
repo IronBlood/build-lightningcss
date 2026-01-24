@@ -23,7 +23,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y qemu-utils
-      - uses: IronBlood/cross-platform-action@aefd8a80eb80f25eff777e5a1b63f598d0dc7d28
+      - uses: IronBlood/cross-platform-action@c8828e27889cbfa2d67da27a20fd2f6ed7ebab60
         with:
           operating_system: ${{ matrix.os.name }}
           architecture: ${{ matrix.os.architecture }}
