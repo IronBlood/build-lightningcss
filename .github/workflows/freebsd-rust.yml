@@ -19,11 +19,11 @@ jobs:
     name: Show rust version on ${{ matrix.os.name }} / ${{ matrix.os.architecture }} / ${{ matrix.os.version }}
     runs-on: ${{ matrix.os.host }}
     steps:
-      - name: Install qemu-img
+      - name: Install qemu
         run: |
           sudo apt update
-          sudo apt install -y qemu-utils
-      - uses: IronBlood/cross-platform-action@c8828e27889cbfa2d67da27a20fd2f6ed7ebab60
+          sudo apt install -y ${{ matrix.os.architecture == 'x86-64' && 'qemu-system-x86' || 'qemu-system-arm' }} qemu-utils
+      - uses: IronBlood/cross-platform-action@b5e6faeeeaf14a382656d71311cdda7b53f484df
         with:
           operating_system: ${{ matrix.os.name }}
           architecture: ${{ matrix.os.architecture }}
