@@ -16,6 +16,7 @@ jobs:
               cp node/index.js node/index.js.bak
               yarn install --ignore-scripts || true
               npx napi build --release --platform --manifest-path ./node/Cargo.toml
+            post_cmd: |
               strip node/*.node
               file node/*.node
               mv node/index.js.bak node/index.js
@@ -24,6 +25,7 @@ jobs:
           - name: cli
             cmd: |
               cargo build --release --features cli
+            post_cmd: |
               mv target/release/lightningcss lightningcss
               strip lightningcss
               file lightningcss
@@ -90,3 +92,4 @@ jobs:
             sccache --show-stats
             ${{ matrix.job.cmd }}
             sccache --show-stats
+            ${{ matrix.job.post_cmd || '' }}
