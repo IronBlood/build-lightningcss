@@ -19,7 +19,11 @@ jobs:
     name: Show rust version on ${{ matrix.os.name }} / ${{ matrix.os.architecture }} / ${{ matrix.os.version }}
     runs-on: ${{ matrix.os.host }}
     steps:
-      - uses: cross-platform-actions/action@v0.32.0
+      - name: Install qemu-img
+        run: |
+          sudo apt update
+          sudo apt install -y qemu-utils
+      - uses: IronBlood/cross-platform-action@aefd8a80eb80f25eff777e5a1b63f598d0dc7d28
         with:
           operating_system: ${{ matrix.os.name }}
           architecture: ${{ matrix.os.architecture }}
