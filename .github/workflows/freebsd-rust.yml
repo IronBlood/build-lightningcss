@@ -39,9 +39,9 @@ jobs:
           - name: freebsd
             version: "14.3"
             architecture: x86-64
-          - name: freebsd
-            version: "14.3"
-            architecture: arm64
+          # - name: freebsd
+          #   version: "14.3"
+          #   architecture: arm64
     name: ${{ matrix.job.name }} on ${{ matrix.os.name }} / ${{ matrix.os.architecture }} / ${{ matrix.os.version }}
     runs-on: ubuntu-latest
     steps:
@@ -84,6 +84,9 @@ jobs:
             sudo pkg install -y rust sccache node npm yarn
             export YARN_CACHE_FOLDER="$PWD/.yarn-cache"
             rustc --version
+            env | grep RUSTC_WRAPPER
+            export SCCACHE_LOG=debug
+            export SCCACHE_LOG_FILE="$PWD/sccache.log"
             # NOTE create a symlink of .cargo
             rm -rf "$HOME/.cargo"
             ln -sfn "$PWD/.cargo" "$HOME/.cargo"
@@ -93,3 +96,5 @@ jobs:
             ${{ matrix.job.cmd }}
             sccache --show-stats
             ${{ matrix.job.post_cmd || '' }}
+      - name: Show sccache log
+        run: cat sccache.log
