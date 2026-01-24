@@ -23,7 +23,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y ${{ matrix.os.architecture == 'x86-64' && 'qemu-system-x86' || 'qemu-system-arm' }} qemu-utils
-      - uses: IronBlood/cross-platform-action@b5e6faeeeaf14a382656d71311cdda7b53f484df
+      - uses: IronBlood/cross-platform-action@a26499562b2d7f1d43e8981b667110ccbb0b6698
         with:
           operating_system: ${{ matrix.os.name }}
           architecture: ${{ matrix.os.architecture }}
