@@ -1,0 +1,25 @@
+name: ARM Runner Info
+on:
+  workflow_dispatch:
+
+jobs:
+  show-info:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04-arm
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Show CPU info
+        run: |
+          uname -a
+          if command -v lscpu >/dev/null 2>&1; then
+            lscpu
+          else
+            sysctl -a | rg -n "machdep.cpu|hw.model|hw.ncpu|hw.logicalcpu|hw.physicalcpu" || true
+          fi
+          if [ -f /proc/cpuinfo ]; then
+            cat /proc/cpuinfo
+          fi
