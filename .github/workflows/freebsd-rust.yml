@@ -1,6 +1,6 @@
 name: Building on FreeBSD
 env:
-  SCCACHE_GHA_ENABLED: "true"
+  # SCCACHE_GHA_ENABLED: "true"
   RUSTC_WRAPPER: "sccache"
 on:
   workflow_dispatch:
@@ -48,12 +48,13 @@ jobs:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/checkout-repo
       - name: Create .cargo and .yarn-cache
-        run: mkdir -p .cargo .yarn-cache
+        run: mkdir -p .cargo .yarn-cache .sccache
       - name: Cache cargo
         uses: actions/cache@v5
         with:
           path: |
             .cargo/
+            .sccache/
           key: ${{ matrix.os.name }}-${{ matrix.os.version }}-${{ matrix.os.architecture }}-${{ matrix.job.name }}-${{ hashFiles('lightningcss/Cargo.lock') }}
       - name: Cache yarn
         uses: actions/cache@v5
@@ -65,6 +66,7 @@ jobs:
         working-directory: lightningcss
         run: rm -r target || true
       - name: Configure sccache
+        if: ${{ false }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -84,9 +86,7 @@ jobs:
             sudo pkg install -y rust sccache node npm yarn
             export YARN_CACHE_FOLDER="$PWD/.yarn-cache"
             rustc --version
-            env | grep RUSTC_WRAPPER
-            export SCCACHE_LOG=debug
-            export SCCACHE_LOG_FILE="$PWD/sccache.log"
+            export SCCACHE_DIR="$PWD/.sccache"
             # NOTE create a symlink of .cargo
             rm -rf "$HOME/.cargo"
             ln -sfn "$PWD/.cargo" "$HOME/.cargo"
@@ -96,5 +96,3 @@ jobs:
             ${{ matrix.job.cmd }}
             sccache --show-stats
             ${{ matrix.job.post_cmd || '' }}
-      - name: Show sccache log
-        run: cat sccache.log
