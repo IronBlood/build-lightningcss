@@ -234,13 +234,17 @@ jobs:
             version: "14.3"
             architecture: arm64
             target: aarch64-unknown-freebsd
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os.architecture == 'x86-64' && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
     name: Build FreeBSD ${{ matrix.os.architecture }}
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/checkout-repo
+      - name: Install Qemu
+        run: |
+          sudo apt update
+          sudo apt install -y ${{ matrix.os.architecture == 'x86-64' && 'qemu-system-x86' || 'qemu-system-arm' }} qemu-utils
       - name: Test and Build
-        uses: cross-platform-actions/action@v0.32.0
+        uses: IronBlood/cross-platform-action@a26499562b2d7f1d43e8981b667110ccbb0b6698
         env:
           RUSTUP_IO_THREADS: 1
         with:
