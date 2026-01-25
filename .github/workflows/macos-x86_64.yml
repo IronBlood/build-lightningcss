@@ -1,0 +1,73 @@
+name: macOS build
+env:
+  DEBUG: napi:*
+  APP_NAME: lightningcss
+  MACOSX_DEPLOYMENT_TARGET: "10.13"
+  CARGO_INCREMENTAL: "1"
+  WORKING_DIRECTORY: lightningcss
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
+on:
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            strip: strip -x
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            strip: strip -x
+    name: build ${{ matrix.settings.target }} on ${{ matrix.settings.os }}
+    runs-on: ${{ matrix.settings.os }}
+    env:
+      BINARY_NAME: ${{ contains(matrix.settings.os, 'windows') && 'lightningcss.exe' || 'lightningcss' }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/checkout-repo
+      - name: Setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: "yarn"
+          cache-dependency-path: lightningcss/yarn.lock
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: ${{ matrix.settings.target }}
+      - name: Install node.js dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: yarn install
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.9
+      - name: Build release
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          JEMALLOC_SYS_WITH_LG_PAGE: ${{ matrix.settings.jemalloc_lg_page }}
+        run: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }}
+      - name: Build CLI
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          JEMALLOC_SYS_WITH_LG_PAGE: ${{ matrix.settings.jemalloc_lg_page }}
+        run: |
+          ${{ matrix.settings.linker || '' }} cargo ${{ matrix.settings.cross == 'zig' && 'zigbuild' || 'build' }} --release --features cli --target ${{ matrix.settings.target }}
+          node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
+      - name: Strip debug symbols # https://github.com/rust-lang/rust/issues/46034
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        if: ${{ matrix.settings.strip }}
+        run: ${{ matrix.settings.strip }} node/*.node ${{ env.BINARY_NAME }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bindings-${{ matrix.settings.target }}
+          path: |
+            ${{ env.WORKING_DIRECTORY }}/node/*.node
+            ${{ env.WORKING_DIRECTORY }}/${{ env.BINARY_NAME }}
