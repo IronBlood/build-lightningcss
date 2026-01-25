@@ -23,6 +23,10 @@ jobs:
           - os: macos-15-intel
             target: x86_64-apple-darwin
             strip: strip -x
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            strip: strip -x
+            jemalloc_lg_page: "14"
     name: build ${{ matrix.settings.target }} on ${{ matrix.settings.os }}
     runs-on: ${{ matrix.settings.os }}
     env:
@@ -45,17 +49,46 @@ jobs:
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: yarn install
       - name: Build release
+        if: ${{ !matrix.settings.android && matrix.settings.target != 'aarch64-apple-darwin' }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }} ${{ matrix.settings.cross == 'zig' && '-x' || matrix.settings.cross == 'napi' && '--use-napi-cross' || matrix.settings.cross == 'cross' && '--use-cross' || '' }}
+      - name: Build CLI
+        if: ${{ !matrix.settings.android && matrix.settings.target != 'aarch64-apple-darwin' }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          ${{ matrix.settings.linker || '' }} cargo ${{ matrix.settings.cross == 'zig' && 'zigbuild' || 'build' }} --release --features cli --target ${{ matrix.settings.target }}
+          node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
+
+      - name: Build release (Apple Silicon)
+        if: ${{ matrix.settings.target == 'aarch64-apple-darwin' }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
         env:
           JEMALLOC_SYS_WITH_LG_PAGE: ${{ matrix.settings.jemalloc_lg_page }}
-        run: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }}
-      - name: Build CLI
+        run: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }} ${{ matrix.settings.cross == 'zig' && '-x' || matrix.settings.cross == 'napi' && '--use-napi-cross' || matrix.settings.cross == 'cross' && '--use-cross' || '' }}
+      - name: Build CLI (Apple Silicon)
+        if: ${{ matrix.settings.target == 'aarch64-apple-darwin' }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
         env:
           JEMALLOC_SYS_WITH_LG_PAGE: ${{ matrix.settings.jemalloc_lg_page }}
         run: |
           ${{ matrix.settings.linker || '' }} cargo ${{ matrix.settings.cross == 'zig' && 'zigbuild' || 'build' }} --release --features cli --target ${{ matrix.settings.target }}
           node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
+
+      - name: Build release (android)
+        if: ${{ matrix.settings.android }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          ANDROID_NDK_LATEST_HOME: ${{ matrix.settings.android_home }}
+        run: npx napi build --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }}
+      - name: Build CLI (android)
+        if: ${{ matrix.settings.android }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          ANDROID_NDK_LATEST_HOME: ${{ matrix.settings.android_home }}
+        run: |
+          ${{ matrix.settings.linker }} cargo build --release --features cli --target ${{ matrix.settings.target }}
+          node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
+
       - name: Strip debug symbols # https://github.com/rust-lang/rust/issues/46034
         working-directory: ${{ env.WORKING_DIRECTORY }}
         if: ${{ matrix.settings.strip }}
