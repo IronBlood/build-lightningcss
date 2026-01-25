@@ -85,8 +85,9 @@ jobs:
             export YARN_CACHE_FOLDER="$PWD/.yarn-cache"
             rustc --version
             export SCCACHE_DIR="$PWD/.sccache"
+            export SCCACHE_IDLE_TIMEOUT=0
             export SCCACHE_LOG=info
-            export SCCACHE_LOG_FILE="$PWD/sccache.log"
+            export SCCACHE_ERROR_LOG="$PWD/sccache.log"
             export CARGO_INCREMENTAL=0
             # NOTE create a symlink of .cargo
             rm -rf "$HOME/.cargo"
