@@ -85,6 +85,9 @@ jobs:
             export YARN_CACHE_FOLDER="$PWD/.yarn-cache"
             rustc --version
             export SCCACHE_DIR="$PWD/.sccache"
+            export SCCACHE_LOG=info
+            export SCCACHE_LOG_FILE="$PWD/sccache.log"
+            export CARGO_INCREMENTAL=0
             # NOTE create a symlink of .cargo
             rm -rf "$HOME/.cargo"
             ln -sfn "$PWD/.cargo" "$HOME/.cargo"
@@ -94,3 +97,7 @@ jobs:
             ${{ matrix.job.cmd }}
             sccache --show-stats
             ${{ matrix.job.post_cmd || '' }}
+            if [ -f "$PWD/../sccache.log" ]; then
+              echo "===== sccache.log ====="
+              cat "$PWD/../sccache.log"
+            fi
