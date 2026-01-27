@@ -1,6 +1,5 @@
 name: Building on FreeBSD
 env:
-  RUSTC_WRAPPER: "sccache"
   DEBUG: "napi:*"
   WORKING_DIRECTORY: lightningcss
 on:
