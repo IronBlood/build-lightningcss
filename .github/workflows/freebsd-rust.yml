@@ -44,7 +44,6 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: clippy, rustfmt, rust-src
-          targets: ${{ matrix.settings.target }}
       - name: Install node.js dependencies
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: yarn install
