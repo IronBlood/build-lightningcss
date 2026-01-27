@@ -2,11 +2,83 @@ name: Building on FreeBSD
 env:
   RUSTC_WRAPPER: "sccache"
   DEBUG: "napi:*"
+  WORKING_DIRECTORY: lightningcss
 on:
   workflow_dispatch:
 
 jobs:
+  build-js-binding-freebsd:
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - os: ubuntu-latest
+            target: x86_64-unknown-freebsd
+            strip: llvm-strip
+            cross: cross
+            setup: |
+              sudo apt update
+              sudo apt install -y llvm
+          - os: ubuntu-latest
+            target: aarch64-unknown-freebsd
+            strip: llvm-strip
+            cross: cross
+            setup: |
+              sudo apt update
+              sudo apt install -y llvm
+    runs-on: ${{ matrix.settings.os }}
+    name: build-${{ matrix.settings.target }}
+    env:
+      BINARY_NAME: ${{ contains(matrix.settings.os, 'windows') && 'lightningcss.exe' || 'lightningcss' }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/checkout-repo
+      - name: Setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: "yarn"
+          cache-dependency-path: lightningcss/yarn.lock
+      - name: Install Rust
+        if: ${{ matrix.settings.cross == 'cross' }}
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy, rustfmt, rust-src
+          targets: ${{ matrix.settings.target }}
+      - name: Install node.js dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: yarn install
+      - name: Install cargo-cross
+        if: ${{ matrix.settings.cross == 'cross' }}
+        run: |
+          cargo install --git https://github.com/cross-rs/cross --rev e281947ca900da425e4ecea7483cfde646c8a1ea cross
+      - name: Setup toolchain
+        if: ${{ matrix.settings.setup }}
+        run: ${{ matrix.settings.setup }}
+      - name: Build release
+        if: ${{ !matrix.settings.android && matrix.settings.target != 'aarch64-apple-darwin' }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }} ${{ matrix.settings.cross == 'zig' && '-x' || matrix.settings.cross == 'napi' && '--use-napi-cross' || matrix.settings.cross == 'cross' && '--use-cross' || '' }}
+      - name: Build CLI
+        if: ${{ !matrix.settings.android && matrix.settings.target != 'aarch64-apple-darwin' }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          ${{ matrix.settings.linker || '' }} ${{ matrix.settings.cross == 'cross' && 'cross +nightly' || 'cargo' }} ${{ matrix.settings.cross == 'zig' && 'zigbuild' || 'build' }} --release --features cli --target ${{ matrix.settings.target }} ${{ matrix.settings.cross == 'cross' && '-Z build-std' || '' }}
+          node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
+      - name: Strip debug symbols # https://github.com/rust-lang/rust/issues/46034
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        if: ${{ matrix.settings.strip }}
+        run: ${{ matrix.settings.strip }} node/*.node ${{ env.BINARY_NAME }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bindings-${{ matrix.settings.target }}
+          path: |
+            ${{ env.WORKING_DIRECTORY }}/node/*.node
+            ${{ env.WORKING_DIRECTORY }}/${{ env.BINARY_NAME }}
+
   build-test-js-binding-freebsd:
+    if: ${{ false }}
     strategy:
       fail-fast: false
       matrix:
