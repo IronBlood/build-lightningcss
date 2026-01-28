@@ -278,6 +278,7 @@ jobs:
           cp target/${{ matrix.settings.target }}/debug/lightningcss test_bins/
           ls -alh test_bins/
       - name: Upload test
+        if: ${{ matrix.settings.cross == 'cross' }}
         uses: actions/upload-artifact@v6
         with:
           name: test-${{ matrix.settings.target }}
