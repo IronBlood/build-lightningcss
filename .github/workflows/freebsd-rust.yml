@@ -101,6 +101,7 @@ jobs:
           cross test --all-features --no-run --target ${{ matrix.settings.target }} --message-format=json ${{ matrix.settings.build_std && '-Z build-std=std,panic_abort +nightly' || '' }} 2>cross.log | grep -E '^\{' | tee cargo-test.jsonl > /dev/null
           cat cross.log
           jq -r 'select(.reason=="compiler-artifact")|select(.profile.test==true)|.executable//empty' cargo-test.jsonl | sed "s|^/target|target|" | tr '\n' '\0' | xargs -0 -I{} cp "{}" test_bins/
+          cp target/${{ matrix.settings.target }}/debug/lightningcss test_bins/
           ls -alh test_bins/
       - name: Upload test
         uses: actions/upload-artifact@v6
@@ -148,13 +149,16 @@ jobs:
             node -e "require('.')"
             # check cli
             file lightningcss
-            chmod +x lightningcss
+            chmod +x lightningcss test_bins/*
             ./lightningcss --help
+            export RAYON_NUM_THREADS=1
             # run cargo test binaries
             if [ -d test_bins ]; then
               for bin in test_bins/*; do
                 [ -f "$bin" ] || continue
-                chmod +x "$bin"
+                if [ "$(basename "$bin")" = "lightningcss" ]; then
+                  continue
+                fi
                 echo "=== $bin ==="
                 "$bin"
               done
