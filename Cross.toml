@@ -1,0 +1,11 @@
+[target.aarch64-unknown-freebsd]
+image = "aarch64-unknown-freebsd:sccache"
+[target.x86_64-unknown-freebsd]
+image = "x86_64-unknown-freebsd:sccache"
+
+[build.env]
+passthrough = [
+	"ACTIONS_CACHE_SERVICE_V2",
+	"ACTIONS_RESULTS_URL",
+	"ACTIONS_RUNTIME_TOKEN",
+]

@@ -1,0 +1,8 @@
+FROM ghcr.io/cross-rs/x86_64-unknown-freebsd:main
+ARG DEBIAN_FRONTEND=noninteractive
+
+# need to have the binary locally
+COPY --chmod=755 sccache /usr/bin/
+
+ENV RUSTC_WRAPPER="/usr/bin/sccache"
+ENV SCCACHE_GHA_ENABLED=true
