@@ -86,12 +86,80 @@ jobs:
         if: ${{ matrix.settings.strip }}
         run: ${{ matrix.settings.strip }} node/*.node ${{ env.BINARY_NAME }}
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: bindings-${{ matrix.settings.target }}
           path: |
             ${{ env.WORKING_DIRECTORY }}/node/*.node
             ${{ env.WORKING_DIRECTORY }}/${{ env.BINARY_NAME }}
+      - name: Build and tests (no run)
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        # currently for cross only
+        if: ${{ matrix.settings.cross == 'cross' }}
+        run: |
+          mkdir -p test_bins
+          cross test --all-features --no-run --target ${{ matrix.settings.target }} --message-format=json ${{ matrix.settings.build_std && '-Z build-std=std,panic_abort +nightly' || '' }} 2>cross.log | grep -E '^\{' | tee cargo-test.jsonl > /dev/null
+          cat cross.log
+          jq -r 'select(.reason=="compiler-artifact")|select(.profile.test==true)|.executable//empty' cargo-test.jsonl | sed "s|^/target|target|" | tr '\n' '\0' | xargs -0 -I{} cp "{}" test_bins/
+          ls -alh test_bins/
+      - name: Upload test
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-${{ matrix.settings.target }}
+          path: |
+            ${{ env.WORKING_DIRECTORY }}/test_bins
+
+  test-freebsd-cross-build:
+    name: Test on FreeBSD ${{ matrix.version }} ${{ matrix.architecture }}
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ["15.0", "14.3", "13.5"]
+        architecture: ["x86-64", "arm64"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/checkout-repo
+      - name: Download artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: bindings-${{ matrix.architecture == 'arm64' && 'aarch64-unknown-freebsd' || 'x86_64-unknown-freebsd' }}
+          path: ${{ env.WORKING_DIRECTORY }}
+      - name: Download test
+        uses: actions/download-artifact@v7
+        with:
+          name: test-${{ matrix.architecture == 'arm64' && 'aarch64-unknown-freebsd' || 'x86_64-unknown-freebsd' }}
+          path: ${{ env.WORKING_DIRECTORY }}
+      - uses: cross-platform-actions/action@492b0c80085400348c599edace11141a4ee73524 # v0.32.0
+        with:
+          operating_system: freebsd
+          architecture: ${{ matrix.architecture }}
+          version: ${{ matrix.version }}
+          memory: 13G
+          cpu_count: 3
+          shell: bash
+          run: |
+            sudo pkg install -y node npm yarn
+            cd lightningcss
+            # test js binding
+            yarn install --ignore-scripts || true
+            yarn test
+            node -e "require('.')"
+            # check cli
+            file lightningcss
+            ./lightningcss --help
+            # run cargo test binaries
+            if [ -d test_bins ]; then
+              for bin in test_bins/*; do
+                [ -f "$bin" ] || continue
+                chmod +x "$bin"
+                echo "=== $bin ==="
+                "$bin"
+              done
+            else
+              echo "test_bins directory not found"
+              exit 1
+            fi
 
   build-test-js-binding-freebsd:
     if: ${{ false }}
