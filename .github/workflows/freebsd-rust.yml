@@ -130,7 +130,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: test-${{ matrix.architecture == 'arm64' && 'aarch64-unknown-freebsd' || 'x86_64-unknown-freebsd' }}
-          path: ${{ env.WORKING_DIRECTORY }}
+          path: ${{ env.WORKING_DIRECTORY }}/test_bins
       - uses: cross-platform-actions/action@492b0c80085400348c599edace11141a4ee73524 # v0.32.0
         with:
           operating_system: freebsd
@@ -148,6 +148,7 @@ jobs:
             node -e "require('.')"
             # check cli
             file lightningcss
+            chmod +x lightningcss
             ./lightningcss --help
             # run cargo test binaries
             if [ -d test_bins ]; then
