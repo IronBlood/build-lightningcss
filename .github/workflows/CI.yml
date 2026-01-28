@@ -5,6 +5,8 @@ env:
   MACOSX_DEPLOYMENT_TARGET: "10.13"
   CARGO_INCREMENTAL: "1"
   WORKING_DIRECTORY: lightningcss
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
 on:
   workflow_dispatch:
 concurrency:
@@ -153,6 +155,8 @@ jobs:
       - name: Install node.js dependencies
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: yarn install
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.9
       - name: Cache cargo
         uses: actions/cache@v5
         with:
@@ -318,6 +322,8 @@ jobs:
         with:
           components: clippy, rustfmt
           targets: wasm32-unknown-unknown
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.9
       - name: Install wasm-opt
         run: sudo apt update && sudo apt install -y binaryen
       - name: Build wasm
@@ -385,6 +391,8 @@ jobs:
         with:
           workspaces: |
             ${{ env.WORKING_DIRECTORY }}
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.9
       - uses: mlugg/setup-zig@v2
         if: ${{ contains(matrix.settings.target, 'musl') }}
         with:
