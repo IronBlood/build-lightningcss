@@ -3,7 +3,6 @@ env:
   DEBUG: napi:*
   APP_NAME: lightningcss
   MACOSX_DEPLOYMENT_TARGET: "10.13"
-  CARGO_INCREMENTAL: "1"
   WORKING_DIRECTORY: lightningcss
   SCCACHE_GHA_ENABLED: "true"
   RUSTC_WRAPPER: "sccache"
@@ -188,7 +187,6 @@ jobs:
             ~/.cargo/git/db/
             ~/.napi-rs
             ${{ env.WORKING_DIRECTORY }}/.cargo-cache
-            ${{ env.WORKING_DIRECTORY }}/target
           key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.os }}-${{ hashFiles(format('{0}/Cargo.lock', env.WORKING_DIRECTORY)) }}
       - uses: mlugg/setup-zig@v2
         if: ${{ matrix.settings.cross == 'zig' }}
