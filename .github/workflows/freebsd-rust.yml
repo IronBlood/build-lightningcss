@@ -111,6 +111,7 @@ jobs:
 
   test-freebsd-cross-build:
     name: Test on FreeBSD ${{ matrix.version }} ${{ matrix.architecture }}
+    needs: build-js-binding-freebsd
     strategy:
       fail-fast: false
       matrix:
