@@ -43,7 +43,7 @@ jobs:
           pacboy: >-
             toolchain:p
             rustup:p
-            node:p
+            nodejs:p
             ${{ (matrix.settings.msys == 'CLANG64' || matrix.settings.msys == 'CLANGARM64') && 'gcc-compat:p' || '' }}
 
       - name: Setup node
