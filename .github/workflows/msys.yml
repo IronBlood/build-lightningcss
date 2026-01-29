@@ -43,15 +43,9 @@ jobs:
           pacboy: >-
             toolchain:p
             rustup:p
+            sccache:p
             nodejs:p
             ${{ (matrix.settings.msys == 'CLANG64' || matrix.settings.msys == 'CLANGARM64') && 'gcc-compat:p' || '' }}
-
-      - name: debug # TODO remove
-        shell: msys2 {0}
-        run: |
-          echo $DEBUG
-          echo $RUSTC_WRAPPER
-          exit 1
 
       - name: Setup node
         uses: actions/setup-node@v6
