@@ -21,6 +21,8 @@ runs:
         git apply -v ../remove_warnings.patch
         # windows related name hashing, floating number
         git apply -v ../windows.patch
+        # windows gnu without `-Wl,-z,nodelete` flag
+        git apply -v ../cargo_config_windows_gnu.patch
 
         # HACK node side
         # error message changed in napi-rs
