@@ -604,6 +604,8 @@ jobs:
           - aarch64-unknown-linux-gnu
           - aarch64-unknown-linux-musl
           - armv7-unknown-linux-gnueabihf
+          - s390x-unknown-linux-gnu
+          - powerpc64le-unknown-linux-gnu
         exclude:
           - node: "24"
             target: armv7-unknown-linux-gnueabihf
@@ -625,6 +627,10 @@ jobs:
               console.log('PLATFORM=linux/arm64')
             } else if ('${{ matrix.target }}'.startsWith('armv7')) {
               console.log('PLATFORM=linux/arm/v7')
+            } else if ('${{ matrix.target }}'.startsWith('s390x')) {
+              console.log('PLATFORM=linux/s390x')
+            } else if ('${{ matrix.target }}'.startsWith('powerpc64le')) {
+              console.log('PLATFORM=linux/ppc64le')
             } else {
               console.log('PLATFORM=linux/amd64')
             }
@@ -636,6 +642,7 @@ jobs:
               console.log('IMAGE=node:${{ matrix.node }}-slim')
             }
           " >> $GITHUB_OUTPUT
+          echo "USE_QEMU=${{ !contains(matrix.target, 'aarch64') && !contains(matrix.target, 'x86_64')}}" >> $GITHUB_OUTPUT
       - name: Install dependencies
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: |
@@ -649,11 +656,11 @@ jobs:
           path: ${{ env.WORKING_DIRECTORY }}
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-        if: ${{ contains(matrix.target, 'armv7') }}
+        if: ${{ steps.docker.outputs.USE_QEMU }}
         with:
           platforms: all
       - run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-        if: ${{ contains(matrix.target, 'armv7') }}
+        if: ${{ steps.docker.outputs.USE_QEMU }}
       - name: Test bindings
         uses: addnab/docker-run-action@v3
         with:
