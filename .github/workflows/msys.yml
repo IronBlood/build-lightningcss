@@ -1,0 +1,184 @@
+name: msys
+env:
+  DEBUG: napi:*
+  MACOSX_DEPLOYMENT_TARGET: "10.13"
+  WORKING_DIRECTORY: lightningcss
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
+on:
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - os: windows-latest
+            target: x86_64-pc-windows-gnu
+            msys: UCRT64
+
+    name: build-${{ matrix.settings.target }}
+    runs-on: ${{ matrix.settings.os }}
+    env:
+      BINARY_NAME: ${{ contains(matrix.settings.os, 'windows') && 'lightningcss.exe' || 'lightningcss' }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/checkout-repo
+      - name: Setup Android NDK
+        if: ${{ matrix.settings.android }}
+        working-directory: /tmp
+        run: |
+          wget -q https://dl.google.com/android/repository/android-ndk-r28-linux.zip -O ndk.zip
+          unzip ndk.zip
+      - name: Setup MSYS2
+        if: ${{ matrix.settings.msys }}
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.settings.msys }}
+          update: false
+          pacboy: >-
+            toolchain:p
+            rustup:p
+            node:p
+            ${{ (matrix.settings.msys == 'CLANG64' || matrix.settings.msys == 'CLANGARM64') && 'gcc-compat:p' || '' }}
+
+      - name: Setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: "yarn"
+          cache-dependency-path: lightningcss/yarn.lock
+      - name: Setup OpenHarmony SDK
+        if: ${{ contains(matrix.settings.target, 'ohos') }}
+        uses: openharmony-rs/setup-ohos-sdk@3c181b3244cec76aaec289ab84fb00f55f2fce3f # v0.2.4
+      - name: Install Rust
+        if: ${{ !matrix.settings.build_std && !matrix.settings.msys }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: ${{ matrix.settings.target }}
+      - name: Install Rust
+        if: ${{ matrix.settings.build_std }}
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy, rustfmt, rust-src
+      - name: Install Rust
+        if: ${{ matrix.settings.msys }}
+        shell: msys2 {0}
+        run: |
+          rustup target add ${{ matrix.settings.target }}
+
+      - name: Install node.js dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: yarn install
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.9
+      - name: Show sccache in msys
+        shell: msys2 {0}
+        run: |
+          echo $PATH
+          where sccache
+      - name: Cache cargo
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ~/.napi-rs
+            ${{ env.WORKING_DIRECTORY }}/.cargo-cache
+          key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.os }}-${{ hashFiles(format('{0}/Cargo.lock', env.WORKING_DIRECTORY)) }}
+      - uses: mlugg/setup-zig@v2
+        if: ${{ matrix.settings.cross == 'zig' }}
+        with:
+          version: 0.14.1
+      - name: Install cargo-zigbuild
+        uses: taiki-e/install-action@v2
+        if: ${{ matrix.settings.cross == 'zig' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          tool: cargo-zigbuild
+      - name: Install and prepare cargo-cross
+        if: ${{ matrix.settings.cross == 'cross' }}
+        run: |
+          # install cross
+          cargo install --git https://github.com/cross-rs/cross --rev e281947ca900da425e4ecea7483cfde646c8a1ea cross
+          # copy Cross.toml to the working directory of lightningcss
+          cp Cross.toml ${{ env.WORKING_DIRECTORY }}
+          # copy the binary to the working directory
+          cp `which sccache` sccache
+          # build the image
+          docker build --tag ${{ matrix.settings.target }}:sccache --file docker/Dockerfile.${{ matrix.settings.target }} .
+      - name: Setup toolchain
+        if: ${{ matrix.settings.setup }}
+        run: ${{ matrix.settings.setup }}
+
+      - name: Build release
+        if: ${{ !matrix.settings.android && matrix.settings.target != 'aarch64-apple-darwin' && !matrix.settings.msys }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }} ${{ matrix.settings.cross == 'zig' && '-x' || matrix.settings.cross == 'napi' && '--use-napi-cross' || matrix.settings.cross == 'cross' && '--use-cross' || '' }} ${{ matrix.settings.build_std && '-- -Z build-std=std,panic_abort +nightly' || '' }}
+      - name: Build CLI
+        if: ${{ !matrix.settings.android && matrix.settings.target != 'aarch64-apple-darwin' && !matrix.settings.msys }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          ${{ matrix.settings.linker || '' }} ${{ matrix.settings.cross == 'cross' && 'cross' || 'cargo' }} ${{ matrix.settings.cross == 'zig' && 'zigbuild' || 'build' }} --release --features cli --target ${{ matrix.settings.target }} ${{ matrix.settings.build_std && '-Z build-std=std,panic_abort +nightly' || '' }}
+          node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
+
+      - name: Build release (Apple Silicon)
+        if: ${{ matrix.settings.target == 'aarch64-apple-darwin' }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          JEMALLOC_SYS_WITH_LG_PAGE: ${{ matrix.settings.jemalloc_lg_page }}
+        run: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }} ${{ matrix.settings.cross == 'zig' && '-x' || matrix.settings.cross == 'napi' && '--use-napi-cross' || matrix.settings.cross == 'cross' && '--use-cross' || '' }}
+      - name: Build CLI (Apple Silicon)
+        if: ${{ matrix.settings.target == 'aarch64-apple-darwin' }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          JEMALLOC_SYS_WITH_LG_PAGE: ${{ matrix.settings.jemalloc_lg_page }}
+        run: |
+          ${{ matrix.settings.linker || '' }} cargo ${{ matrix.settings.cross == 'zig' && 'zigbuild' || 'build' }} --release --features cli --target ${{ matrix.settings.target }}
+          node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
+
+      - name: Build release (android)
+        if: ${{ matrix.settings.android }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          ANDROID_NDK_LATEST_HOME: ${{ matrix.settings.android_home }}
+        run: npx napi build --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }}
+      - name: Build CLI (android)
+        if: ${{ matrix.settings.android }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          ANDROID_NDK_LATEST_HOME: ${{ matrix.settings.android_home }}
+        run: |
+          ${{ matrix.settings.linker }} cargo build --release --features cli --target ${{ matrix.settings.target }}
+          node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
+
+      - name: Build release (msys)
+        if: ${{ matrix.settings.msys }}
+        shell: msys2 {0}
+        run: |
+          npx napi build --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }}
+      - name: Build CLI (msys)
+        if: ${{ matrix.settings.msys }}
+        shell: msys2 {0}
+        run: |
+          cargo build --release --features cli --target ${{ matrix.settings.target }}
+          node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
+
+      - name: Strip debug symbols # https://github.com/rust-lang/rust/issues/46034
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        if: ${{ matrix.settings.strip }}
+        run: ${{ matrix.settings.strip }} node/*.node ${{ env.BINARY_NAME }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bindings-${{ matrix.settings.target }}
+          path: |
+            ${{ env.WORKING_DIRECTORY }}/node/*.node
+            ${{ env.WORKING_DIRECTORY }}/${{ env.BINARY_NAME }}
