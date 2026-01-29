@@ -86,6 +86,7 @@ jobs:
             setup: |
               sudo apt update
               sudo apt install -y gcc-powerpc64le-linux-gnu libc6-dev-ppc64el-cross
+            build_test: true
           - os: ubuntu-latest
             target: s390x-unknown-linux-gnu
             strip: s390x-linux-gnu-strip
@@ -93,6 +94,7 @@ jobs:
             setup: |
               sudo apt update
               sudo apt install -y gcc-s390x-linux-gnu libc6-dev-s390x-cross llvm
+            build_test: true
           - os: ubuntu-latest
             target: riscv64gc-unknown-linux-gnu
             strip: riscv64-linux-gnu-strip
@@ -100,6 +102,7 @@ jobs:
             setup: |
               sudo apt update
               sudo apt install -y gcc-riscv64-linux-gnu libc6-dev-riscv64-cross
+            build_test: true
           - os: ubuntu-latest
             target: riscv64gc-unknown-linux-musl
             strip: llvm-strip
@@ -107,6 +110,7 @@ jobs:
             setup: |
               sudo apt update
               sudo apt install -y gcc-riscv64-linux-gnu libc6-dev-riscv64-cross llvm
+            build_test: true
           - os: ubuntu-latest
             target: loongarch64-unknown-linux-gnu
             strip: loongarch64-linux-gnu-strip
@@ -133,6 +137,7 @@ jobs:
             setup: |
               sudo apt update
               sudo apt install -y llvm
+            build_test: true
           - os: ubuntu-latest
             target: aarch64-unknown-freebsd
             build_std: true
@@ -141,6 +146,7 @@ jobs:
             setup: |
               sudo apt update
               sudo apt install -y llvm
+            build_test: true
 
     name: build-${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.os }}
@@ -304,16 +310,16 @@ jobs:
       - name: Build and tests (no run)
         working-directory: ${{ env.WORKING_DIRECTORY }}
         # currently for cross only
-        if: ${{ matrix.settings.cross == 'cross' }}
+        if: ${{ matrix.settings.build_test }}
         run: |
           mkdir -p test_bins
-          cross test --all-features --no-run --target ${{ matrix.settings.target }} --message-format=json ${{ matrix.settings.build_std && '-Z build-std=std,panic_abort +nightly' || '' }} 2>cross.log | grep -E '^\{' | tee cargo-test.jsonl > /dev/null
+          ${{ matrix.settings.linker || '' }} ${{ matrix.settings.cross == 'cross' && 'cross' || 'cargo' }} ${{ matrix.settings.cross == 'zig' && 'zigbuild --tests' || 'test --no-run' }} --all-features --target ${{ matrix.settings.target }} --message-format=json ${{ matrix.settings.build_std && '-Z build-std=std,panic_abort +nightly' || '' }} 2>cross.log | grep -E '^\{' | tee cargo-test.jsonl > /dev/null
           cat cross.log
           jq -r 'select(.reason=="compiler-artifact")|select(.profile.test==true)|.executable//empty' cargo-test.jsonl | sed "s|^/target|target|" | tr '\n' '\0' | xargs -0 -I{} cp "{}" test_bins/
           cp target/${{ matrix.settings.target }}/debug/lightningcss test_bins/
           ls -alh test_bins/
       - name: Upload test
-        if: ${{ matrix.settings.cross == 'cross' }}
+        if: ${{ matrix.settings.build_test }}
         uses: actions/upload-artifact@v6
         with:
           name: test-${{ matrix.settings.target }}
