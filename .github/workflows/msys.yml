@@ -162,11 +162,13 @@ jobs:
       - name: Build release (msys)
         if: ${{ matrix.settings.msys }}
         shell: msys2 {0}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
         run: |
           npx napi build --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }}
       - name: Build CLI (msys)
         if: ${{ matrix.settings.msys }}
         shell: msys2 {0}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
         run: |
           cargo build --release --features cli --target ${{ matrix.settings.target }}
           node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
