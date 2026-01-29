@@ -25,6 +25,9 @@ jobs:
             target: aarch64-pc-windows-msvc
           - os: windows-latest
             target: i686-pc-windows-msvc
+          - os: windows-latest
+            target: x86_64-pc-windows-gnu
+            msys: UCRT64
           # MacOS
           - os: macos-latest
             target: x86_64-apple-darwin
@@ -152,6 +155,18 @@ jobs:
         run: |
           wget -q https://dl.google.com/android/repository/android-ndk-r28-linux.zip -O ndk.zip
           unzip ndk.zip
+      - name: Setup MSYS2
+        if: ${{ matrix.settings.msys }}
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.settings.msys }}
+          update: false
+          pacboy: >-
+            toolchain:p
+            rustup:p
+            sccache:p
+            nodejs:p
+            ${{ (matrix.settings.msys == 'CLANG64' || matrix.settings.msys == 'CLANGARM64') && 'gcc-compat:p' || '' }}
 
       - name: Setup node
         uses: actions/setup-node@v6
@@ -163,7 +178,7 @@ jobs:
         if: ${{ contains(matrix.settings.target, 'ohos') }}
         uses: openharmony-rs/setup-ohos-sdk@3c181b3244cec76aaec289ab84fb00f55f2fce3f # v0.2.4
       - name: Install Rust
-        if: ${{ !matrix.settings.build_std }}
+        if: ${{ !matrix.settings.build_std && !matrix.settings.msys }}
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
@@ -173,6 +188,11 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: clippy, rustfmt, rust-src
+      - name: Install Rust
+        if: ${{ matrix.settings.msys }}
+        shell: msys2 {0}
+        run: |
+          rustup target add ${{ matrix.settings.target }}
       - name: Install node.js dependencies
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: yarn install
@@ -215,11 +235,11 @@ jobs:
         run: ${{ matrix.settings.setup }}
 
       - name: Build release
-        if: ${{ !matrix.settings.android && matrix.settings.target != 'aarch64-apple-darwin' }}
+        if: ${{ !matrix.settings.android && matrix.settings.target != 'aarch64-apple-darwin' && !matrix.settings.msys }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }} ${{ matrix.settings.cross == 'zig' && '-x' || matrix.settings.cross == 'napi' && '--use-napi-cross' || matrix.settings.cross == 'cross' && '--use-cross' || '' }} ${{ matrix.settings.build_std && '-- -Z build-std=std,panic_abort +nightly' || '' }}
       - name: Build CLI
-        if: ${{ !matrix.settings.android && matrix.settings.target != 'aarch64-apple-darwin' }}
+        if: ${{ !matrix.settings.android && matrix.settings.target != 'aarch64-apple-darwin' && !matrix.settings.msys }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: |
           ${{ matrix.settings.linker || '' }} ${{ matrix.settings.cross == 'cross' && 'cross' || 'cargo' }} ${{ matrix.settings.cross == 'zig' && 'zigbuild' || 'build' }} --release --features cli --target ${{ matrix.settings.target }} ${{ matrix.settings.build_std && '-Z build-std=std,panic_abort +nightly' || '' }}
@@ -253,6 +273,21 @@ jobs:
           ANDROID_NDK_LATEST_HOME: ${{ matrix.settings.android_home }}
         run: |
           ${{ matrix.settings.linker }} cargo build --release --features cli --target ${{ matrix.settings.target }}
+          node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
+
+      - name: Build release (msys)
+        if: ${{ matrix.settings.msys }}
+        shell: msys2 {0}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          npx napi build --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }}
+          strip node/*.node
+      - name: Build CLI (msys)
+        if: ${{ matrix.settings.msys }}
+        shell: msys2 {0}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          cargo build --release --features cli --target ${{ matrix.settings.target }}
           node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
 
       - name: Strip debug symbols # https://github.com/rust-lang/rust/issues/46034
@@ -400,6 +435,9 @@ jobs:
             target: i686-pc-windows-msvc
           - host: windows-11-arm
             target: aarch64-pc-windows-msvc
+          - host: windows-latest
+            target: x86_64-pc-windows-gnu
+            msys: UCRT64
           # macOS
           - host: macos-latest
             target: x86_64-apple-darwin
@@ -423,9 +461,25 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/checkout-repo
+      - name: Setup MSYS2
+        if: ${{ matrix.settings.msys }}
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.settings.msys }}
+          update: false
+          pacboy: >-
+            toolchain:p
+            rustup:p
+            sccache:p
+            ${{ (matrix.settings.msys == 'CLANG64' || matrix.settings.msys == 'CLANGARM64') && 'gcc-compat:p' || '' }}
       - uses: dtolnay/rust-toolchain@stable
+        if: ${{ !matrix.settings.msys }}
         with:
           targets: ${{ matrix.settings.target }}
+      - if: ${{ matrix.settings.msys }}
+        shell: msys2 {0}
+        run: |
+          rustup target add ${{ matrix.settings.target }}
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
@@ -440,7 +494,7 @@ jobs:
         if: ${{ matrix.settings.setup }}
         run: ${{ matrix.settings.setup }}
       - name: Cargo test
-        if: ${{ !matrix.settings.test }}
+        if: ${{ !matrix.settings.test && !matrix.settings.msys }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
         env:
           CARGO_TERM_COLOR: always
@@ -455,6 +509,15 @@ jobs:
           RUST_BACKTRACE: full
           RAYON_NUM_THREADS: 1
         run: ${{ matrix.settings.test }}
+      - name: Cargo test (msys)
+        if: ${{ matrix.settings.msys }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          CARGO_TERM_COLOR: always
+          RUST_BACKTRACE: full
+          RAYON_NUM_THREADS: 1
+        shell: msys2 {0}
+        run: cargo test --all-features --target ${{ matrix.settings.target }}
 
   test-js-win-mac:
     name: Test Bindings on ${{ matrix.settings.target }} - node@${{ matrix.node }}
@@ -475,6 +538,9 @@ jobs:
           - host: windows-11-arm
             target: aarch64-pc-windows-msvc
             architecture: arm64
+          - host: windows-latest
+            target: x86_64-pc-windows-gnu
+            msys: UCRT64
           # MacOS
           - host: macos-latest
             target: aarch64-apple-darwin
@@ -493,6 +559,15 @@ jobs:
           cache: yarn
           architecture: ${{ matrix.settings.architecture }}
           cache-dependency-path: lightningcss/yarn.lock
+      - name: Setup MSYS2
+        if: ${{ matrix.settings.msys }}
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.settings.msys }}
+          update: false
+          pacboy: >-
+            nodejs:p
+            yarn:p
       - name: Install node.js dependencies
         working-directory: ${{ env.WORKING_DIRECTORY }}
         # NOTE skip installing puppeteer, doesn't support on some systems
@@ -503,6 +578,12 @@ jobs:
           name: bindings-${{ matrix.settings.target }}
           path: ${{ env.WORKING_DIRECTORY }}
       - name: Test bindings
+        if: ${{ !matrix.settings.msys }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: yarn test
+      - name: Test bindings (msys)
+        if: ${{ matrix.settings.msys }}
+        shell: msys2 {0}
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: yarn test
 
