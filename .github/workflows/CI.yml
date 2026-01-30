@@ -533,13 +533,13 @@ jobs:
       matrix:
         settings:
           - target: powerpc64le-unknown-linux-gnu
-            image: debian-stable
+            image: debian:stable
             platform: linux/ppc64le
           - target: s390x-unknown-linux-gnu
-            image: debian-stable
+            image: debian:stable
             platform: linux/s390x
           - target: riscv64gc-unknown-linux-gnu
-            image: debian
+            image: debian:stable
             platform: linux/riscv64
           - target: riscv64gc-unknown-linux-musl
             image: alpine
