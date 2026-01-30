@@ -525,6 +525,69 @@ jobs:
         shell: msys2 {0}
         run: cargo test --all-features --target ${{ matrix.settings.target }}
 
+  test-rust-cross:
+    needs: build
+    name: Test Rust for ${{ matrix.settings.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - target: powerpc64le-unknown-linux-gnu
+            image: debian-stable
+            platform: linux/ppc64le
+          - target: s390x-unknown-linux-gnu
+            image: debian-stable
+            platform: linux/s390x
+          - target: riscv64gc-unknown-linux-gnu
+            image: debian
+            platform: linux/riscv64
+          - target: riscv64gc-unknown-linux-musl
+            image: alpine
+            platform: linux/riscv64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/checkout-repo
+      - name: Download artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: bindings-${{ matrix.settings.target }}
+          path: ${{ env.WORKING_DIRECTORY }}
+      - name: Download test
+        uses: actions/download-artifact@v7
+        with:
+          name: test-${{ matrix.settings.target }}
+          path: ${{ env.WORKING_DIRECTORY }}/test_bins
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+      - run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+      - name: Test bindings
+        uses: addnab/docker-run-action@v3
+        with:
+          image: ${{ matrix.settings.image }}
+          options: -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }}/${{ env.WORKING_DIRECTORY }} --platform ${{ matrix.settings.platform }}
+          run: |
+            file lightningcss
+            chmod +x lightningcss test_bins/*
+            ./lightningcss --help
+            export RAYON_NUM_THREADS=1
+            # run cargo test binaries
+            if [ -d test_bins ]; then
+              for bin in test_bins/*; do
+                [ -f "$bin" ] || continue
+                if [ "$(basename "$bin")" = "lightningcss" ]; then
+                  continue
+                fi
+                echo "=== $bin ==="
+                "$bin"
+              done
+            else
+              echo "test_bins directory not found"
+              exit 1
+            fi
+
   test-js-win-mac:
     name: Test Bindings on ${{ matrix.settings.target }} - node@${{ matrix.node }}
     needs:
