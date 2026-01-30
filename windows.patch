@@ -34,7 +34,7 @@ index ce7008d..6328d4a 100644
 +  }
 +}
 diff --git a/src/lib.rs b/src/lib.rs
-index bcd4764..ebcd755 100644
+index eefef76..67b107a 100644
 --- a/src/lib.rs
 +++ b/src/lib.rs
 @@ -68,6 +68,149 @@ mod tests {
@@ -187,7 +187,7 @@ index bcd4764..ebcd755 100644
    fn test(source: &str, expected: &str) {
      test_with_options(source, expected, ParserOptions::default())
    }
-@@ -83,6 +226,10 @@ mod tests {
+@@ -90,6 +233,10 @@ mod tests {
      minify_test_with_options(source, expected, ParserOptions::default())
    }
  
@@ -198,7 +198,7 @@ index bcd4764..ebcd755 100644
    #[track_caller]
    fn minify_test_with_options<'i, 'o>(source: &'i str, expected: &'i str, options: ParserOptions<'o, 'i>) {
      let mut stylesheet = StyleSheet::parse(&source, options.clone()).unwrap();
-@@ -96,6 +243,24 @@ mod tests {
+@@ -103,6 +250,24 @@ mod tests {
      assert_eq!(res.code, expected);
    }
  
@@ -223,7 +223,7 @@ index bcd4764..ebcd755 100644
    fn minify_error_test_with_options<'i, 'o>(
      source: &'i str,
      error: MinifyErrorKind,
-@@ -125,6 +290,23 @@ mod tests {
+@@ -132,6 +297,23 @@ mod tests {
      assert_eq!(res.code, expected);
    }
  
@@ -247,7 +247,7 @@ index bcd4764..ebcd755 100644
    fn attr_test(source: &str, expected: &str, minify: bool, targets: Option<Browsers>) {
      let mut attr = StyleAttribute::parse(source, ParserOptions::default()).unwrap();
      attr.minify(MinifyOptions {
-@@ -13329,7 +13511,7 @@ mod tests {
+@@ -13579,7 +13761,7 @@ mod tests {
        },
      );
  
@@ -256,7 +256,19 @@ index bcd4764..ebcd755 100644
        ".foo { background: linear-gradient(lch(56.208% 136.76 46.312), lch(51% 135.366 301.364)) }",
        indoc! { r#"
          .foo {
-@@ -13343,6 +13525,7 @@ mod tests {
+@@ -13591,9 +13773,10 @@ mod tests {
+         chrome: Some(90 << 16),
+         ..Browsers::default()
+       },
++      FLOAT_EPSILON,
+     );
+ 
+-    prefix_test(
++    prefix_test_fuzzy(
+       ".foo { background: linear-gradient(lch(56.208% 136.76 46.312), lch(51% 135.366 301.364)) }",
+       indoc! { r#"
+         .foo {
+@@ -13607,6 +13790,7 @@ mod tests {
          safari: Some(14 << 16),
          ..Browsers::default()
        },
@@ -264,7 +276,7 @@ index bcd4764..ebcd755 100644
      );
  
      prefix_test(
-@@ -13389,7 +13572,7 @@ mod tests {
+@@ -13653,7 +13837,7 @@ mod tests {
        },
      );
  
@@ -273,7 +285,7 @@ index bcd4764..ebcd755 100644
        ".foo { background-image: linear-gradient(oklab(59.686% 0.1009 0.1192), oklab(54.0% -0.10 -0.02)); }",
        indoc! { r#"
          .foo {
-@@ -13400,6 +13583,7 @@ mod tests {
+@@ -13664,6 +13848,7 @@ mod tests {
          safari: Some(15 << 16),
          ..Browsers::default()
        },
@@ -281,7 +293,7 @@ index bcd4764..ebcd755 100644
      );
  
      prefix_test(
-@@ -13416,7 +13600,7 @@ mod tests {
+@@ -13680,7 +13865,7 @@ mod tests {
        },
      );
  
@@ -290,7 +302,7 @@ index bcd4764..ebcd755 100644
        ".foo { background-image: linear-gradient(lch(56.208% 136.76 46.312), lch(51% 135.366 301.364)) }",
        indoc! { r#"
          .foo {
-@@ -13430,6 +13614,7 @@ mod tests {
+@@ -13694,6 +13879,7 @@ mod tests {
          safari: Some(14 << 16),
          ..Browsers::default()
        },
@@ -298,7 +310,7 @@ index bcd4764..ebcd755 100644
      );
  
      prefix_test(
-@@ -13476,7 +13661,7 @@ mod tests {
+@@ -13740,7 +13926,7 @@ mod tests {
        },
      );
  
@@ -307,7 +319,7 @@ index bcd4764..ebcd755 100644
        ".foo { background-image: linear-gradient(oklab(59.686% 0.1009 0.1192), oklab(54.0% -0.10 -0.02)); }",
        indoc! { r#"
          .foo {
-@@ -13487,6 +13672,7 @@ mod tests {
+@@ -13751,6 +13937,7 @@ mod tests {
          safari: Some(15 << 16),
          ..Browsers::default()
        },
@@ -315,7 +327,7 @@ index bcd4764..ebcd755 100644
      );
  
      // Test cases from https://github.com/postcss/autoprefixer/blob/541295c0e6dd348db2d3f52772b59cd403c59d29/test/cases/gradient.css
-@@ -18481,9 +18667,10 @@ mod tests {
+@@ -18747,9 +18934,10 @@ mod tests {
            ..PrinterOptions::default()
          })
          .unwrap();
@@ -327,7 +339,7 @@ index bcd4764..ebcd755 100644
        );
      }
  
-@@ -20309,9 +20496,10 @@ mod tests {
+@@ -20575,9 +20763,10 @@ mod tests {
        ".foo { color: color-mix(in lab, purple 50%, plum 50%); }",
        ".foo{color:lab(51.5117% 43.3777 -29.0443)}",
      );

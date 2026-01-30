@@ -7,7 +7,7 @@ runs:
       shell: bash
       env:
         URL_REPO: "https://github.com/IronBlood/lightningcss"
-        URL_REF: "pr-rc-0"
+        URL_REF: "pr-rc-1"
       run: |
         git clone --depth 1 --branch ${{ env.URL_REF }} ${{ env.URL_REPO }}
     - name: Apply patches
@@ -15,10 +15,6 @@ runs:
       working-directory: lightningcss
       run: |
         # HACK rust side
-        # use the latest stable toolchain
-        git apply -v ../rust-toolchain.patch
-        # some warnings complained by the latest toolchain
-        git apply -v ../remove_warnings.patch
         # windows related name hashing, floating number
         git apply -v ../windows.patch
         # windows gnu without `-Wl,-z,nodelete` flag
