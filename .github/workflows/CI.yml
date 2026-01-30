@@ -185,18 +185,19 @@ jobs:
         uses: openharmony-rs/setup-ohos-sdk@3c181b3244cec76aaec289ab84fb00f55f2fce3f # v0.2.4
       - name: Install Rust
         if: ${{ !matrix.settings.build_std && !matrix.settings.msys }}
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
-          targets: ${{ matrix.settings.target }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          rustup target add ${{ matrix.settings.target }}
       - name: Install Rust
         if: ${{ matrix.settings.build_std }}
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: clippy, rustfmt, rust-src
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          rustup toolchain install nightly
+          rustup component add rust-src --toolchain nightly
       - name: Install Rust
         if: ${{ matrix.settings.msys }}
         shell: msys2 {0}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
         run: |
           rustup target add ${{ matrix.settings.target }}
       - name: Install node.js dependencies
@@ -397,11 +398,9 @@ jobs:
           node-version: 24
           cache: "yarn"
           cache-dependency-path: lightningcss/yarn.lock
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
-          targets: wasm32-unknown-unknown
+      - name: Setup rust target
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: rustup target add wasm32-unknown-unknown
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.9
       - name: Install wasm-opt
@@ -478,12 +477,13 @@ jobs:
             rustup:p
             sccache:p
             ${{ (matrix.settings.msys == 'CLANG64' || matrix.settings.msys == 'CLANGARM64') && 'gcc-compat:p' || '' }}
-      - uses: dtolnay/rust-toolchain@stable
-        if: ${{ !matrix.settings.msys }}
-        with:
-          targets: ${{ matrix.settings.target }}
+      - if: ${{ !matrix.settings.msys }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          rustup target add ${{ matrix.settings.target }}
       - if: ${{ matrix.settings.msys }}
         shell: msys2 {0}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
         run: |
           rustup target add ${{ matrix.settings.target }}
       - uses: Swatinem/rust-cache@v2
