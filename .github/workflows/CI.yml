@@ -421,7 +421,7 @@ jobs:
         run: TEST_WASM=node yarn test
       - name: Run test (browser)
         working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: TEST_WASM=node yarn test
+        run: TEST_WASM=browser yarn test
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
