@@ -563,6 +563,11 @@ jobs:
         with:
           platforms: all
       - run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Test bindings
         uses: addnab/docker-run-action@v3
         with:
@@ -730,6 +735,11 @@ jobs:
           platforms: all
       - run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
         if: ${{ steps.docker.outputs.USE_QEMU == 'true' }}
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Test bindings
         uses: addnab/docker-run-action@v3
         with:
