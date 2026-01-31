@@ -1,0 +1,345 @@
+name: CI-upstream
+env:
+  DEBUG: napi:*
+  APP_NAME: lightningcss
+  MACOSX_DEPLOYMENT_TARGET: "10.13"
+  WORKING_DIRECTORY: lightningcss
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
+on:
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          # Windows
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+          - os: windows-latest
+            target: i686-pc-windows-msvc
+          - os: windows-latest
+            target: x86_64-pc-windows-gnu
+            msys: UCRT64
+          # MacOS
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            strip: strip -x
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            strip: strip -x
+            jemalloc_lg_page: "14"
+          # Linux
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            strip: strip
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            strip: strip
+            cross: zig
+          - os: ubuntu-latest
+            strip: aarch64-linux-gnu-strip
+            target: aarch64-unknown-linux-gnu
+            cross: napi
+            setup: |
+              sudo apt update
+              sudo apt install -y gcc-aarch64-linux-gnu
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            strip: llvm-strip
+            cross: zig
+            setup: |
+              sudo apt update
+              sudo apt install -y llvm
+          - os: ubuntu-latest
+            target: armv7-unknown-linux-gnueabihf
+            strip: llvm-strip
+            cross: napi
+            setup: |
+              sudo apt update
+              sudo apt install -y gcc-arm-linux-gnueabihf llvm
+          - os: ubuntu-latest
+            android: true
+            target: aarch64-linux-android
+            strip: llvm-strip
+            android_home: /tmp/android-ndk-r28
+            linker: CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=/tmp/android-ndk-r28/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang
+            setup: sudo apt update && sudo apt install -y llvm
+          - os: ubuntu-latest
+            android: true
+            target: armv7-linux-androideabi
+            strip: llvm-strip
+            android_home: /tmp/android-ndk-r28
+            linker: CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER=/tmp/android-ndk-r28/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang
+            setup: sudo apt update && sudo apt install -y llvm
+          - os: ubuntu-latest
+            target: powerpc64le-unknown-linux-gnu
+            strip: powerpc64le-linux-gnu-strip
+            linker: CARGO_TARGET_POWERPC64LE_UNKNOWN_LINUX_GNU_LINKER=powerpc64le-linux-gnu-gcc
+            setup: |
+              sudo apt update
+              sudo apt install -y gcc-powerpc64le-linux-gnu libc6-dev-ppc64el-cross
+          - os: ubuntu-latest
+            target: s390x-unknown-linux-gnu
+            strip: s390x-linux-gnu-strip
+            linker: CARGO_TARGET_S390X_UNKNOWN_LINUX_GNU_LINKER=s390x-linux-gnu-gcc
+            setup: |
+              sudo apt update
+              sudo apt install -y gcc-s390x-linux-gnu libc6-dev-s390x-cross llvm
+          - os: ubuntu-latest
+            target: riscv64gc-unknown-linux-gnu
+            strip: riscv64-linux-gnu-strip
+            linker: CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER=riscv64-linux-gnu-gcc
+            setup: |
+              sudo apt update
+              sudo apt install -y gcc-riscv64-linux-gnu libc6-dev-riscv64-cross
+          - os: ubuntu-latest
+            target: riscv64gc-unknown-linux-musl
+            strip: llvm-strip
+            cross: zig
+            setup: |
+              sudo apt update
+              sudo apt install -y gcc-riscv64-linux-gnu libc6-dev-riscv64-cross llvm
+          - os: ubuntu-latest
+            target: loongarch64-unknown-linux-gnu
+            strip: loongarch64-linux-gnu-strip
+            linker: CARGO_TARGET_LOONGARCH64_UNKNOWN_LINUX_GNU_LINKER=loongarch64-linux-gnu-gcc-13
+            setup: |
+              sudo apt update
+              sudo apt install -y gcc-13-loongarch64-linux-gnu
+          - os: ubuntu-latest
+            target: loongarch64-unknown-linux-musl
+            strip: llvm-strip
+            cross: zig
+            setup: |
+              sudo apt update
+              sudo apt install -y llvm
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-ohos
+            strip: /home/runner/setup-ohos-sdk/linux/native/llvm/bin/llvm-strip
+            linker: CARGO_TARGET_AARCH64_UNKNOWN_LINUX_OHOS_LINKER=/home/runner/setup-ohos-sdk/linux/native/llvm/bin/aarch64-unknown-linux-ohos-clang
+          # FreeBSD
+          - os: ubuntu-latest
+            target: x86_64-unknown-freebsd
+            strip: llvm-strip
+            cross: cross
+            setup: |
+              sudo apt update
+              sudo apt install -y llvm
+          - os: ubuntu-latest
+            target: aarch64-unknown-freebsd
+            build_std: true
+            strip: llvm-strip
+            cross: cross
+            setup: |
+              sudo apt update
+              sudo apt install -y llvm
+
+    name: build-${{ matrix.settings.target }}
+    runs-on: ${{ matrix.settings.os }}
+    env:
+      BINARY_NAME: ${{ contains(matrix.settings.os, 'windows') && 'lightningcss.exe' || 'lightningcss' }}
+    steps:
+      - name: Checkout upstream
+        uses: actions/checkout@v6
+        with:
+          repository: parcel-bundler/lightningcss
+          ref: master
+          path: ${{ env.WORKING_DIRECTORY }}
+      - name: Setup Android NDK
+        if: ${{ matrix.settings.android }}
+        working-directory: /tmp
+        run: |
+          wget -q https://dl.google.com/android/repository/android-ndk-r28-linux.zip -O ndk.zip
+          unzip ndk.zip
+      - name: Setup MSYS2
+        if: ${{ matrix.settings.msys }}
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.settings.msys }}
+          update: false
+          pacboy: >-
+            toolchain:p
+            rustup:p
+            sccache:p
+            nodejs:p
+            ${{ (matrix.settings.msys == 'CLANG64' || matrix.settings.msys == 'CLANGARM64') && 'gcc-compat:p' || '' }}
+
+      - name: Setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: "yarn"
+          cache-dependency-path: lightningcss/yarn.lock
+      - name: Setup OpenHarmony SDK
+        if: ${{ contains(matrix.settings.target, 'ohos') }}
+        uses: openharmony-rs/setup-ohos-sdk@3c181b3244cec76aaec289ab84fb00f55f2fce3f # v0.2.4
+      - name: Install Rust
+        if: ${{ !matrix.settings.build_std && !matrix.settings.msys }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          rustup target add ${{ matrix.settings.target }}
+      - name: Install Rust
+        if: ${{ matrix.settings.build_std }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          rustup toolchain install nightly
+          rustup component add rust-src --toolchain nightly
+      - name: Install Rust
+        if: ${{ matrix.settings.msys }}
+        shell: msys2 {0}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          rustup target add ${{ matrix.settings.target }}
+      - name: Install node.js dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: yarn install
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.9
+      - name: Cache cargo
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ~/.napi-rs
+            ${{ env.WORKING_DIRECTORY }}/.cargo-cache
+          key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.os }}-${{ hashFiles(format('{0}/Cargo.lock', env.WORKING_DIRECTORY)) }}
+      - uses: mlugg/setup-zig@v2
+        if: ${{ matrix.settings.cross == 'zig' }}
+        with:
+          version: 0.14.1
+      - name: Install cargo-zigbuild
+        uses: taiki-e/install-action@v2
+        if: ${{ matrix.settings.cross == 'zig' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          tool: cargo-zigbuild
+      - name: Install and prepare cargo-cross
+        if: ${{ matrix.settings.cross == 'cross' }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          # install cross
+          cargo install --git https://github.com/cross-rs/cross --rev e281947ca900da425e4ecea7483cfde646c8a1ea cross
+          # copy the binary to the working directory
+          cp `which sccache` sccache
+          # build the image
+          docker build --tag ${{ matrix.settings.target }}:sccache --file docker/Dockerfile.${{ matrix.settings.target }} .
+      - name: Setup toolchain
+        if: ${{ matrix.settings.setup }}
+        run: ${{ matrix.settings.setup }}
+
+      - name: Build release
+        id: napi_build
+        continue-on-error: true
+        if: ${{ !matrix.settings.android && matrix.settings.target != 'aarch64-apple-darwin' && !matrix.settings.msys }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: npx napi build --release --platform --cargo-cwd node --target ${{ matrix.settings.target }} ${{ matrix.settings.cross == 'zig' && '-x' || matrix.settings.cross == 'napi' && '--use-napi-cross' || matrix.settings.cross == 'cross' && '--use-cross' || '' }} ${{ matrix.settings.build_std && '-- -Z build-std=std,panic_abort +nightly' || '' }}
+      - name: Build CLI
+        id: cli_build
+        continue-on-error: true
+        if: ${{ always() && !matrix.settings.android && matrix.settings.target != 'aarch64-apple-darwin' && !matrix.settings.msys }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          ${{ matrix.settings.linker || '' }} ${{ matrix.settings.cross == 'cross' && 'cross' || 'cargo' }} ${{ matrix.settings.cross == 'zig' && 'zigbuild' || 'build' }} --release --features cli --target ${{ matrix.settings.target }} ${{ matrix.settings.build_std && '-Z build-std=std,panic_abort +nightly' || '' }}
+          node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
+
+      - name: Build release (Apple Silicon)
+        id: napi_build_apple
+        continue-on-error: true
+        if: ${{ matrix.settings.target == 'aarch64-apple-darwin' }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          JEMALLOC_SYS_WITH_LG_PAGE: ${{ matrix.settings.jemalloc_lg_page }}
+        run: npx napi build --release --platform --cargo-cwd node --target ${{ matrix.settings.target }} ${{ matrix.settings.cross == 'zig' && '-x' || matrix.settings.cross == 'napi' && '--use-napi-cross' || matrix.settings.cross == 'cross' && '--use-cross' || '' }}
+      - name: Build CLI (Apple Silicon)
+        id: cli_build_apple
+        continue-on-error: true
+        if: ${{ always() && matrix.settings.target == 'aarch64-apple-darwin' }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          JEMALLOC_SYS_WITH_LG_PAGE: ${{ matrix.settings.jemalloc_lg_page }}
+        run: |
+          ${{ matrix.settings.linker || '' }} cargo ${{ matrix.settings.cross == 'zig' && 'zigbuild' || 'build' }} --release --features cli --target ${{ matrix.settings.target }}
+          node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
+
+      - name: Build release (android)
+        id: napi_build_android
+        continue-on-error: true
+        if: ${{ matrix.settings.android }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          ANDROID_NDK_LATEST_HOME: ${{ matrix.settings.android_home }}
+        run: npx napi build --platform --cargo-cwd node --target ${{ matrix.settings.target }}
+      - name: Build CLI (android)
+        id: cli_build_android
+        continue-on-error: true
+        if: ${{ always() && matrix.settings.android }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          ANDROID_NDK_LATEST_HOME: ${{ matrix.settings.android_home }}
+        run: |
+          ${{ matrix.settings.linker }} cargo build --release --features cli --target ${{ matrix.settings.target }}
+          node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
+
+      - name: Build release (msys)
+        id: napi_build_msys
+        continue-on-error: true
+        if: ${{ matrix.settings.msys }}
+        shell: msys2 {0}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          npx napi build --platform --cargo-cwd node --target ${{ matrix.settings.target }}
+          strip node/*.node
+      - name: Build CLI (msys)
+        id: cli_build_msys
+        continue-on-error: true
+        if: ${{ always() && matrix.settings.msys }}
+        shell: msys2 {0}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          cargo build --release --features cli --target ${{ matrix.settings.target }}
+          node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
+
+      - name: Check build results
+        if: ${{ always() }}
+        run: |
+          failed=0
+          for outcome in \
+            "${{ steps.napi_build.outcome }}" \
+            "${{ steps.cli_build.outcome }}" \
+            "${{ steps.napi_build_apple.outcome }}" \
+            "${{ steps.cli_build_apple.outcome }}" \
+            "${{ steps.napi_build_android.outcome }}" \
+            "${{ steps.cli_build_android.outcome }}" \
+            "${{ steps.napi_build_msys.outcome }}" \
+            "${{ steps.cli_build_msys.outcome }}"; do
+            if [ "$outcome" = "failure" ]; then
+              failed=1
+            fi
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "One or more build steps failed."
+            exit 1
+          fi
+
+      - name: Strip debug symbols # https://github.com/rust-lang/rust/issues/46034
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        if: ${{ matrix.settings.strip }}
+        run: ${{ matrix.settings.strip }} node/*.node ${{ env.BINARY_NAME }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bindings-${{ matrix.settings.target }}
+          path: |
+            ${{ env.WORKING_DIRECTORY }}/node/*.node
+            ${{ env.WORKING_DIRECTORY }}/${{ env.BINARY_NAME }}
