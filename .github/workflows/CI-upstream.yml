@@ -335,11 +335,11 @@ jobs:
       - name: Strip debug symbols # https://github.com/rust-lang/rust/issues/46034
         working-directory: ${{ env.WORKING_DIRECTORY }}
         if: ${{ matrix.settings.strip }}
-        run: ${{ matrix.settings.strip }} node/*.node ${{ env.BINARY_NAME }}
+        run: ${{ matrix.settings.strip }} *.node ${{ env.BINARY_NAME }}
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: bindings-${{ matrix.settings.target }}
           path: |
-            ${{ env.WORKING_DIRECTORY }}/node/*.node
+            ${{ env.WORKING_DIRECTORY }}/*.node
             ${{ env.WORKING_DIRECTORY }}/${{ env.BINARY_NAME }}
