@@ -240,32 +240,24 @@ jobs:
         run: ${{ matrix.settings.setup }}
 
       - name: Build release
-        id: napi_build
-        continue-on-error: true
         if: ${{ !matrix.settings.android && matrix.settings.target != 'aarch64-apple-darwin' && !matrix.settings.msys }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }} ${{ matrix.settings.cross == 'zig' && '-x' || matrix.settings.cross == 'napi' && '--use-napi-cross' || matrix.settings.cross == 'cross' && '--use-cross' || '' }} ${{ matrix.settings.build_std && '-- -Z build-std=std,panic_abort +nightly' || '' }}
       - name: Build CLI
-        id: cli_build
-        continue-on-error: true
-        if: ${{ always() && !matrix.settings.android && matrix.settings.target != 'aarch64-apple-darwin' && !matrix.settings.msys }}
+        if: ${{ !matrix.settings.android && matrix.settings.target != 'aarch64-apple-darwin' && !matrix.settings.msys }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: |
           ${{ matrix.settings.linker || '' }} ${{ matrix.settings.cross == 'cross' && 'cross' || 'cargo' }} ${{ matrix.settings.cross == 'zig' && 'zigbuild' || 'build' }} --release --features cli --target ${{ matrix.settings.target }} ${{ matrix.settings.build_std && '-Z build-std=std,panic_abort +nightly' || '' }}
           node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
 
       - name: Build release (Apple Silicon)
-        id: napi_build_apple
-        continue-on-error: true
         if: ${{ matrix.settings.target == 'aarch64-apple-darwin' }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
         env:
           JEMALLOC_SYS_WITH_LG_PAGE: ${{ matrix.settings.jemalloc_lg_page }}
         run: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }} ${{ matrix.settings.cross == 'zig' && '-x' || matrix.settings.cross == 'napi' && '--use-napi-cross' || matrix.settings.cross == 'cross' && '--use-cross' || '' }}
       - name: Build CLI (Apple Silicon)
-        id: cli_build_apple
-        continue-on-error: true
-        if: ${{ always() && matrix.settings.target == 'aarch64-apple-darwin' }}
+        if: ${{ matrix.settings.target == 'aarch64-apple-darwin' }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
         env:
           JEMALLOC_SYS_WITH_LG_PAGE: ${{ matrix.settings.jemalloc_lg_page }}
@@ -274,17 +266,13 @@ jobs:
           node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
 
       - name: Build release (android)
-        id: napi_build_android
-        continue-on-error: true
         if: ${{ matrix.settings.android }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
         env:
           ANDROID_NDK_LATEST_HOME: ${{ matrix.settings.android_home }}
         run: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }}
       - name: Build CLI (android)
-        id: cli_build_android
-        continue-on-error: true
-        if: ${{ always() && matrix.settings.android }}
+        if: ${{ matrix.settings.android }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
         env:
           ANDROID_NDK_LATEST_HOME: ${{ matrix.settings.android_home }}
@@ -293,8 +281,6 @@ jobs:
           node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
 
       - name: Build release (msys)
-        id: napi_build_msys
-        continue-on-error: true
         if: ${{ matrix.settings.msys }}
         shell: msys2 {0}
         working-directory: ${{ env.WORKING_DIRECTORY }}
@@ -302,37 +288,12 @@ jobs:
           npx napi build --release --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }}
           strip node/*.node
       - name: Build CLI (msys)
-        id: cli_build_msys
-        continue-on-error: true
-        if: ${{ always() && matrix.settings.msys }}
+        if: ${{ matrix.settings.msys }}
         shell: msys2 {0}
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: |
           cargo build --release --features cli --target ${{ matrix.settings.target }}
           node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
-
-      - name: Check build results
-        if: ${{ always() }}
-        shell: bash
-        run: |
-          failed=0
-          for outcome in \
-            "${{ steps.napi_build.outcome }}" \
-            "${{ steps.cli_build.outcome }}" \
-            "${{ steps.napi_build_apple.outcome }}" \
-            "${{ steps.cli_build_apple.outcome }}" \
-            "${{ steps.napi_build_android.outcome }}" \
-            "${{ steps.cli_build_android.outcome }}" \
-            "${{ steps.napi_build_msys.outcome }}" \
-            "${{ steps.cli_build_msys.outcome }}"; do
-            if [ "$outcome" = "failure" ]; then
-              failed=1
-            fi
-          done
-          if [ "$failed" -ne 0 ]; then
-            echo "One or more build steps failed."
-            exit 1
-          fi
 
       - name: Strip debug symbols # https://github.com/rust-lang/rust/issues/46034
         working-directory: ${{ env.WORKING_DIRECTORY }}
