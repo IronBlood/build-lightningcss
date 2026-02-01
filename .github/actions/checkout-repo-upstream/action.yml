@@ -1,0 +1,21 @@
+name: Checkout lightningcss (upstream + patches)
+description: Checkout the source code at a given ref, and apply patches needed for CI
+runs:
+  using: "composite"
+  steps:
+    - name: Clone lightningcss
+      shell: bash
+      env:
+        URL_REPO: "https://github.com/IronBlood/lightningcss"
+        URL_REF: "bump-napi-cli-to-v3"
+      run: |
+        git clone --depth 1 --branch ${{ env.URL_REF }} ${{ env.URL_REPO }} lightningcss
+    - name: Apply patches
+      shell: bash
+      working-directory: lightningcss
+      run: |
+        # Windows cargo test fixes
+        git apply -v ../windows.patch
+        # Node bindings tests and platform coverage
+        git apply -v ../node_test_bundle_normalize.patch
+        git apply -v ../node_index.patch

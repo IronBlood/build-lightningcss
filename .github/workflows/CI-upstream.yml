@@ -86,6 +86,7 @@ jobs:
             setup: |
               sudo apt update
               sudo apt install -y gcc-powerpc64le-linux-gnu libc6-dev-ppc64el-cross
+            build_test: true
           - os: ubuntu-latest
             target: s390x-unknown-linux-gnu
             strip: s390x-linux-gnu-strip
@@ -93,6 +94,7 @@ jobs:
             setup: |
               sudo apt update
               sudo apt install -y gcc-s390x-linux-gnu libc6-dev-s390x-cross llvm
+            build_test: true
           - os: ubuntu-latest
             target: riscv64gc-unknown-linux-gnu
             strip: riscv64-linux-gnu-strip
@@ -100,6 +102,7 @@ jobs:
             setup: |
               sudo apt update
               sudo apt install -y gcc-riscv64-linux-gnu libc6-dev-riscv64-cross
+            build_test: true
           - os: ubuntu-latest
             target: riscv64gc-unknown-linux-musl
             strip: llvm-strip
@@ -107,6 +110,7 @@ jobs:
             setup: |
               sudo apt update
               sudo apt install -y gcc-riscv64-linux-gnu libc6-dev-riscv64-cross llvm
+            build_test: true
           - os: ubuntu-latest
             target: loongarch64-unknown-linux-gnu
             strip: loongarch64-linux-gnu-strip
@@ -133,6 +137,7 @@ jobs:
             setup: |
               sudo apt update
               sudo apt install -y llvm
+            build_test: true
           - os: ubuntu-latest
             target: aarch64-unknown-freebsd
             build_std: true
@@ -141,6 +146,7 @@ jobs:
             setup: |
               sudo apt update
               sudo apt install -y llvm
+            build_test: true
 
     name: build-${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.os }}
@@ -148,12 +154,7 @@ jobs:
       BINARY_NAME: ${{ contains(matrix.settings.os, 'windows') && 'lightningcss.exe' || 'lightningcss' }}
     steps:
       - uses: actions/checkout@v6
-      - name: Checkout upstream
-        uses: actions/checkout@v6
-        with:
-          repository: IronBlood/lightningcss
-          ref: bump-napi-cli-to-v3
-          path: ${{ env.WORKING_DIRECTORY }}
+      - uses: ./.github/actions/checkout-repo-upstream
       - name: Setup Android NDK
         if: ${{ matrix.settings.android }}
         working-directory: /tmp
@@ -307,3 +308,441 @@ jobs:
           path: |
             ${{ env.WORKING_DIRECTORY }}/node/*.node
             ${{ env.WORKING_DIRECTORY }}/${{ env.BINARY_NAME }}
+      - name: Build and tests (no run)
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        # currently for cross only
+        if: ${{ matrix.settings.build_test }}
+        run: |
+          mkdir -p test_bins
+          ${{ matrix.settings.linker || '' }} ${{ matrix.settings.cross == 'cross' && 'cross' || 'cargo' }} ${{ matrix.settings.cross == 'zig' && 'zigbuild --tests' || 'test --no-run' }} --all-features --target ${{ matrix.settings.target }} --message-format=json ${{ matrix.settings.build_std && '-Z build-std=std,panic_abort +nightly' || '' }} 2>cross.log | grep -E '^\{' | tee cargo-test.jsonl > /dev/null
+          cat cross.log
+          jq -r 'select(.reason=="compiler-artifact")|select(.profile.test==true)|.executable//empty' cargo-test.jsonl | sed "s|^/target|target|" | tr '\n' '\0' | xargs -0 -I{} cp "{}" test_bins/
+          cp target/${{ matrix.settings.target }}/debug/lightningcss test_bins/
+          ls -alh test_bins/
+      - name: Upload test
+        if: ${{ matrix.settings.build_test }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-${{ matrix.settings.target }}
+          path: |
+            ${{ env.WORKING_DIRECTORY }}/test_bins
+
+  test-freebsd-js-rust:
+    name: Test on FreeBSD ${{ matrix.version }} ${{ matrix.architecture }}
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ["15.0", "14.3", "13.5"]
+        architecture: ["x86-64", "arm64"]
+        exclude:
+          - version: "13.5"
+            architecture: "arm64"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/checkout-repo-upstream
+      - name: Download artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: bindings-${{ matrix.architecture == 'arm64' && 'aarch64-unknown-freebsd' || 'x86_64-unknown-freebsd' }}
+          path: ${{ env.WORKING_DIRECTORY }}
+      - name: Download test
+        uses: actions/download-artifact@v7
+        with:
+          name: test-${{ matrix.architecture == 'arm64' && 'aarch64-unknown-freebsd' || 'x86_64-unknown-freebsd' }}
+          path: ${{ env.WORKING_DIRECTORY }}/test_bins
+      - uses: cross-platform-actions/action@492b0c80085400348c599edace11141a4ee73524 # v0.32.0
+        with:
+          operating_system: freebsd
+          architecture: ${{ matrix.architecture }}
+          version: ${{ matrix.version }}
+          memory: 13G
+          cpu_count: 3
+          shell: bash
+          run: |
+            sudo pkg install -y node npm yarn
+            cd lightningcss
+            # test js binding
+            yarn install --ignore-scripts || true
+            yarn test
+            node -e "require('.')"
+            # check cli
+            file lightningcss
+            chmod +x lightningcss test_bins/*
+            ./lightningcss --help
+            export RAYON_NUM_THREADS=1
+            # run cargo test binaries
+            if [ -d test_bins ]; then
+              for bin in test_bins/*; do
+                [ -f "$bin" ] || continue
+                if [ "$(basename "$bin")" = "lightningcss" ]; then
+                  continue
+                fi
+                echo "=== $bin ==="
+                "$bin"
+              done
+            else
+              echo "test_bins directory not found"
+              exit 1
+            fi
+
+  build-test-wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/checkout-repo-upstream
+      - name: Setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: "yarn"
+          cache-dependency-path: lightningcss/yarn.lock
+      - name: Setup rust target
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: rustup target add wasm32-unknown-unknown
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.9
+      - name: Install wasm-opt
+        run: sudo apt update && sudo apt install -y binaryen
+      - name: Build wasm
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          yarn install
+          yarn wasm:build-release
+      - name: Patch tests
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          # HACK: inject `napi_is_arraybuffer`
+          wget https://raw.githubusercontent.com/IronBlood/napi-wasm/refs/heads/napi_is_arraybuffer/index.mjs -O wasm/node_modules/napi-wasm/index.mjs
+      - name: Run test (node)
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: TEST_WASM=node yarn test
+      - name: Run test (browser)
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: TEST_WASM=browser yarn test
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm
+          path: ${{ env.WORKING_DIRECTORY }}/wasm/lightningcss_node.wasm
+
+  test-rust:
+    name: Test Rust for ${{ matrix.settings.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          # Windows
+          - host: windows-latest
+            target: x86_64-pc-windows-msvc
+          - host: windows-latest
+            target: i686-pc-windows-msvc
+          - host: windows-11-arm
+            target: aarch64-pc-windows-msvc
+          - host: windows-latest
+            target: x86_64-pc-windows-gnu
+            msys: UCRT64
+          # macOS
+          - host: macos-latest
+            target: x86_64-apple-darwin
+          - host: macos-latest
+            target: aarch64-apple-darwin
+          # Linux
+          - host: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - host: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - host: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - host: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            setup: cargo install cargo-zigbuild
+            test: cargo zigbuild --tests --all-features --target aarch64-unknown-linux-musl
+          - host: ubuntu-24.04-arm
+            target: armv7-unknown-linux-gnueabihf
+            setup: sudo dpkg --add-architecture armhf && sudo apt update && sudo apt install -y gcc-arm-linux-gnueabihf libc6:armhf libgcc-s1:armhf libstdc++6:armhf
+    runs-on: ${{ matrix.settings.host }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/checkout-repo-upstream
+      - name: Setup MSYS2
+        if: ${{ matrix.settings.msys }}
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.settings.msys }}
+          update: false
+          pacboy: >-
+            toolchain:p
+            rustup:p
+            sccache:p
+            ${{ (matrix.settings.msys == 'CLANG64' || matrix.settings.msys == 'CLANGARM64') && 'gcc-compat:p' || '' }}
+      - if: ${{ !matrix.settings.msys }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          rustup target add ${{ matrix.settings.target }}
+      - if: ${{ matrix.settings.msys }}
+        shell: msys2 {0}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          rustup target add ${{ matrix.settings.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            ${{ env.WORKING_DIRECTORY }}
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: mlugg/setup-zig@v2
+        if: ${{ contains(matrix.settings.target, 'musl') }}
+        with:
+          version: 0.14.1
+      - name: Setup toolchain
+        if: ${{ matrix.settings.setup }}
+        run: ${{ matrix.settings.setup }}
+      - name: Cargo test
+        if: ${{ !matrix.settings.test && !matrix.settings.msys }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          CARGO_TERM_COLOR: always
+          RUST_BACKTRACE: full
+          RAYON_NUM_THREADS: 1
+        run: cargo test --all-features --target ${{ matrix.settings.target }}
+      - name: Cargo test (customized test commands)
+        if: ${{ matrix.settings.test }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          CARGO_TERM_COLOR: always
+          RUST_BACKTRACE: full
+          RAYON_NUM_THREADS: 1
+        run: ${{ matrix.settings.test }}
+      - name: Cargo test (msys)
+        if: ${{ matrix.settings.msys }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        env:
+          CARGO_TERM_COLOR: always
+          RUST_BACKTRACE: full
+          RAYON_NUM_THREADS: 1
+        shell: msys2 {0}
+        run: cargo test --all-features --target ${{ matrix.settings.target }}
+
+  test-rust-cross:
+    needs: build
+    name: Test Rust for ${{ matrix.settings.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - target: powerpc64le-unknown-linux-gnu
+            image: debian:stable
+            platform: linux/ppc64le
+          - target: s390x-unknown-linux-gnu
+            image: debian:stable
+            platform: linux/s390x
+          - target: riscv64gc-unknown-linux-gnu
+            image: debian:stable
+            platform: linux/riscv64
+          - target: riscv64gc-unknown-linux-musl
+            image: alpine
+            platform: linux/riscv64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/checkout-repo-upstream
+      - name: Download artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: bindings-${{ matrix.settings.target }}
+          path: ${{ env.WORKING_DIRECTORY }}
+      - name: Download test
+        uses: actions/download-artifact@v7
+        with:
+          name: test-${{ matrix.settings.target }}
+          path: ${{ env.WORKING_DIRECTORY }}/test_bins
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+      - run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Test bindings
+        uses: addnab/docker-run-action@v3
+        with:
+          image: ${{ matrix.settings.image }}
+          options: -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }}/${{ env.WORKING_DIRECTORY }} --platform ${{ matrix.settings.platform }}
+          run: |
+            file lightningcss
+            chmod +x lightningcss test_bins/*
+            ./lightningcss --help
+            export RAYON_NUM_THREADS=1
+            # run cargo test binaries
+            if [ -d test_bins ]; then
+              for bin in test_bins/*; do
+                [ -f "$bin" ] || continue
+                if [ "$(basename "$bin")" = "lightningcss" ]; then
+                  continue
+                fi
+                echo "=== $bin ==="
+                "$bin"
+              done
+            else
+              echo "test_bins directory not found"
+              exit 1
+            fi
+
+  test-js-win-mac:
+    name: Test Bindings on ${{ matrix.settings.target }} - node@${{ matrix.node }}
+    needs:
+      - build
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - "20"
+          - "22"
+          - "24"
+        settings:
+          # Windows
+          - host: windows-latest
+            target: x86_64-pc-windows-msvc
+            architecture: x64
+          - host: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            architecture: arm64
+          - host: windows-latest
+            target: x86_64-pc-windows-gnu
+            msys: UCRT64
+          # MacOS
+          - host: macos-latest
+            target: aarch64-apple-darwin
+            architecture: arm64
+          - host: macos-latest
+            target: x86_64-apple-darwin
+            architecture: x64
+    runs-on: ${{ matrix.settings.host }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/checkout-repo-upstream
+      - name: Setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: yarn
+          architecture: ${{ matrix.settings.architecture }}
+          cache-dependency-path: lightningcss/yarn.lock
+      - name: Setup MSYS2
+        if: ${{ matrix.settings.msys }}
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.settings.msys }}
+          update: false
+          pacboy: >-
+            nodejs:p
+            yarn:p
+      - name: Install node.js dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        # NOTE skip installing puppeteer, doesn't support on some systems
+        run: yarn install --ignore-scripts
+      - name: Download artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: bindings-${{ matrix.settings.target }}
+          path: ${{ env.WORKING_DIRECTORY }}
+      - name: Test bindings
+        if: ${{ !matrix.settings.msys }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: yarn test
+      - name: Test bindings (msys)
+        if: ${{ matrix.settings.msys }}
+        shell: msys2 {0}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: yarn test
+
+  test-js-linux:
+    name: Test Bindings on ${{ matrix.target }} - node@${{ matrix.node }}
+    needs:
+      - build
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - "20"
+          - "22"
+          - "24"
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
+          - aarch64-unknown-linux-gnu
+          - aarch64-unknown-linux-musl
+          - armv7-unknown-linux-gnueabihf
+          - s390x-unknown-linux-gnu
+          - powerpc64le-unknown-linux-gnu
+        exclude:
+          - node: "24"
+            target: armv7-unknown-linux-gnueabihf
+    runs-on: ${{ contains(matrix.target, 'aarch64') && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/checkout-repo-upstream
+      - name: Setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: yarn
+          cache-dependency-path: lightningcss/yarn.lock
+      - name: Output docker params
+        id: docker
+        run: |
+          node -e "
+            if ('${{ matrix.target }}'.startsWith('aarch64')) {
+              console.log('PLATFORM=linux/arm64')
+            } else if ('${{ matrix.target }}'.startsWith('armv7')) {
+              console.log('PLATFORM=linux/arm/v7')
+            } else if ('${{ matrix.target }}'.startsWith('s390x')) {
+              console.log('PLATFORM=linux/s390x')
+            } else if ('${{ matrix.target }}'.startsWith('powerpc64le')) {
+              console.log('PLATFORM=linux/ppc64le')
+            } else {
+              console.log('PLATFORM=linux/amd64')
+            }
+          " >> $GITHUB_OUTPUT
+          node -e "
+            if ('${{ matrix.target }}'.endsWith('-musl')) {
+              console.log('IMAGE=node:${{ matrix.node }}-alpine')
+            } else {
+              console.log('IMAGE=node:${{ matrix.node }}-slim')
+            }
+          " >> $GITHUB_OUTPUT
+          echo "USE_QEMU=${{ !contains(matrix.target, 'aarch64') && !contains(matrix.target, 'x86_64')}}" >> $GITHUB_OUTPUT
+      - name: Install dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          yarn config set --json supportedArchitectures.cpu '["current", "arm64", "x64", "arm"]'
+          yarn config set --json supportedArchitectures.libc '["current", "musl", "gnu"]'
+          yarn install --ignore-scripts
+      - name: Download artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: bindings-${{ matrix.target }}
+          path: ${{ env.WORKING_DIRECTORY }}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        if: ${{ steps.docker.outputs.USE_QEMU == 'true' }}
+        with:
+          platforms: all
+      - run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+        if: ${{ steps.docker.outputs.USE_QEMU == 'true' }}
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Test bindings
+        uses: addnab/docker-run-action@v3
+        with:
+          image: ${{ steps.docker.outputs.IMAGE }}
+          options: -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }}/${{ env.WORKING_DIRECTORY }} --platform ${{ steps.docker.outputs.PLATFORM }}
+          run: yarn test
