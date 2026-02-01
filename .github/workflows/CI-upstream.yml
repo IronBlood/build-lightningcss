@@ -150,8 +150,8 @@ jobs:
       - name: Checkout upstream
         uses: actions/checkout@v6
         with:
-          repository: parcel-bundler/lightningcss
-          ref: master
+          repository: IronBlood/lightningcss
+          ref: bump-napi-cli-to-v3
           path: ${{ env.WORKING_DIRECTORY }}
       - name: Setup Android NDK
         if: ${{ matrix.settings.android }}
@@ -243,7 +243,7 @@ jobs:
         continue-on-error: true
         if: ${{ !matrix.settings.android && matrix.settings.target != 'aarch64-apple-darwin' && !matrix.settings.msys }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: npx napi build --release --platform --cargo-cwd node --target ${{ matrix.settings.target }} ${{ matrix.settings.cross == 'zig' && '-x' || matrix.settings.cross == 'napi' && '--use-napi-cross' || matrix.settings.cross == 'cross' && '--use-cross' || '' }} ${{ matrix.settings.build_std && '-- -Z build-std=std,panic_abort +nightly' || '' }}
+        run: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }} ${{ matrix.settings.cross == 'zig' && '-x' || matrix.settings.cross == 'napi' && '--use-napi-cross' || matrix.settings.cross == 'cross' && '--use-cross' || '' }} ${{ matrix.settings.build_std && '-- -Z build-std=std,panic_abort +nightly' || '' }}
       - name: Build CLI
         id: cli_build
         continue-on-error: true
@@ -260,7 +260,7 @@ jobs:
         working-directory: ${{ env.WORKING_DIRECTORY }}
         env:
           JEMALLOC_SYS_WITH_LG_PAGE: ${{ matrix.settings.jemalloc_lg_page }}
-        run: npx napi build --release --platform --cargo-cwd node --target ${{ matrix.settings.target }} ${{ matrix.settings.cross == 'zig' && '-x' || matrix.settings.cross == 'napi' && '--use-napi-cross' || matrix.settings.cross == 'cross' && '--use-cross' || '' }}
+        run: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }} ${{ matrix.settings.cross == 'zig' && '-x' || matrix.settings.cross == 'napi' && '--use-napi-cross' || matrix.settings.cross == 'cross' && '--use-cross' || '' }}
       - name: Build CLI (Apple Silicon)
         id: cli_build_apple
         continue-on-error: true
@@ -279,7 +279,7 @@ jobs:
         working-directory: ${{ env.WORKING_DIRECTORY }}
         env:
           ANDROID_NDK_LATEST_HOME: ${{ matrix.settings.android_home }}
-        run: npx napi build --platform --cargo-cwd node --target ${{ matrix.settings.target }}
+        run: npx napi build --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }}
       - name: Build CLI (android)
         id: cli_build_android
         continue-on-error: true
@@ -298,7 +298,7 @@ jobs:
         shell: msys2 {0}
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: |
-          npx napi build --platform --cargo-cwd node --target ${{ matrix.settings.target }}
+          npx napi build --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }}
           strip node/*.node
       - name: Build CLI (msys)
         id: cli_build_msys
@@ -335,11 +335,11 @@ jobs:
       - name: Strip debug symbols # https://github.com/rust-lang/rust/issues/46034
         working-directory: ${{ env.WORKING_DIRECTORY }}
         if: ${{ matrix.settings.strip }}
-        run: ${{ matrix.settings.strip }} *.node ${{ env.BINARY_NAME }}
+        run: ${{ matrix.settings.strip }} node/*.node ${{ env.BINARY_NAME }}
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: bindings-${{ matrix.settings.target }}
           path: |
-            ${{ env.WORKING_DIRECTORY }}/*.node
+            ${{ env.WORKING_DIRECTORY }}/node/*.node
             ${{ env.WORKING_DIRECTORY }}/${{ env.BINARY_NAME }}
