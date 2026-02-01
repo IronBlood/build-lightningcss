@@ -272,7 +272,7 @@ jobs:
         working-directory: ${{ env.WORKING_DIRECTORY }}
         env:
           ANDROID_NDK_LATEST_HOME: ${{ matrix.settings.android_home }}
-        run: npx napi build --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }}
+        run: npx napi build --release --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }}
       - name: Build CLI (android)
         if: ${{ matrix.settings.android }}
         working-directory: ${{ env.WORKING_DIRECTORY }}
@@ -287,7 +287,7 @@ jobs:
         shell: msys2 {0}
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: |
-          npx napi build --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }}
+          npx napi build --release --platform --manifest-path ./node/Cargo.toml --target ${{ matrix.settings.target }}
           strip node/*.node
       - name: Build CLI (msys)
         if: ${{ matrix.settings.msys }}
