@@ -312,6 +312,7 @@ jobs:
 
       - name: Check build results
         if: ${{ always() }}
+        shell: bash
         run: |
           failed=0
           for outcome in \
