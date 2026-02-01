@@ -147,6 +147,7 @@ jobs:
     env:
       BINARY_NAME: ${{ contains(matrix.settings.os, 'windows') && 'lightningcss.exe' || 'lightningcss' }}
     steps:
+      - uses: actions/checkout@v6
       - name: Checkout upstream
         uses: actions/checkout@v6
         with:
