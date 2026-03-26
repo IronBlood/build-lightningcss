@@ -34,10 +34,20 @@ index ce7008d..6328d4a 100644
 +  }
 +}
 diff --git a/src/lib.rs b/src/lib.rs
-index eefef76..67b107a 100644
+index 75e8eef..8136542 100644
 --- a/src/lib.rs
 +++ b/src/lib.rs
-@@ -68,6 +68,149 @@ mod tests {
+@@ -61,8 +61,8 @@ mod tests {
+   use crate::rules::CssRule;
+   use crate::rules::Location;
+   use crate::stylesheet::*;
+-  use crate::test_helpers::panic_with_test_error;
+   use crate::targets::{Browsers, Features, Targets};
++  use crate::test_helpers::panic_with_test_error;
+   use crate::traits::{Parse, ToCss};
+   use crate::values::color::CssColor;
+   use crate::vendor_prefix::VendorPrefix;
+@@ -72,6 +72,149 @@ mod tests {
    use std::collections::HashMap;
    use std::sync::{Arc, RwLock};
  
@@ -184,10 +194,10 @@ index eefef76..67b107a 100644
 +    input[start..index].parse::<f64>().ok().map(|num| (num, index))
 +  }
 +
+   #[track_caller]
    fn test(source: &str, expected: &str) {
      test_with_options(source, expected, ParserOptions::default())
-   }
-@@ -90,6 +233,10 @@ mod tests {
+@@ -114,6 +257,10 @@ mod tests {
      minify_test_with_options(source, expected, ParserOptions::default())
    }
  
@@ -197,8 +207,8 @@ index eefef76..67b107a 100644
 +
    #[track_caller]
    fn minify_test_with_options<'i, 'o>(source: &'i str, expected: &'i str, options: ParserOptions<'o, 'i>) {
-     let mut stylesheet = StyleSheet::parse(&source, options.clone()).unwrap();
-@@ -103,6 +250,24 @@ mod tests {
+     let mut stylesheet = match StyleSheet::parse(&source, options) {
+@@ -133,6 +280,24 @@ mod tests {
      assert_eq!(res.code, expected);
    }
  
@@ -220,10 +230,10 @@ index eefef76..67b107a 100644
 +    assert_css_eq_with_epsilon(&res.code, expected, epsilon);
 +  }
 +
+   #[track_caller]
    fn minify_error_test_with_options<'i, 'o>(
      source: &'i str,
-     error: MinifyErrorKind,
-@@ -132,6 +297,23 @@ mod tests {
+@@ -174,6 +339,23 @@ mod tests {
      assert_eq!(res.code, expected);
    }
  
@@ -244,10 +254,91 @@ index eefef76..67b107a 100644
 +    assert_css_eq_with_epsilon(&res.code, expected, epsilon);
 +  }
 +
+   #[track_caller]
    fn attr_test(source: &str, expected: &str, minify: bool, targets: Option<Browsers>) {
-     let mut attr = StyleAttribute::parse(source, ParserOptions::default()).unwrap();
-     attr.minify(MinifyOptions {
-@@ -13579,7 +13761,7 @@ mod tests {
+     let mut attr = match StyleAttribute::parse(source, ParserOptions::default()) {
+@@ -12825,32 +13007,68 @@ mod tests {
+     minify_test(".foo { transform: scale(100%, 100%) }", ".foo{transform:scale(1)}");
+     minify_test(".foo { transform: scale3d(100%, 100%, 1) }", ".foo{transform:scale(1)}");
+     minify_test(".foo { transform: scale(-100%, -100%) }", ".foo{transform:scale(-1)}");
+-    minify_test(".foo { transform: scale3d(-100%, -100%, 1) }", ".foo{transform:scale(-1)}");
++    minify_test(
++      ".foo { transform: scale3d(-100%, -100%, 1) }",
++      ".foo{transform:scale(-1)}",
++    );
+     minify_test(".foo { transform: scale(100%, 200%) }", ".foo{transform:scaleY(2)}");
+-    minify_test(".foo { transform: scale3d(100%, 200%, 1) }", ".foo{transform:scaleY(2)}");
+-    minify_test(".foo { transform: scale3d(100%, 100%, 0%) }", ".foo{transform:scaleZ(0)}");
+-    minify_test(".foo { transform: scale3d(100%, 100%, 100%) }", ".foo{transform:scale(1)}");
+-    minify_test(".foo { transform: scale3d(-0%, -0%, -0%) }", ".foo{transform:scale3d(0,0,0)}");
++    minify_test(
++      ".foo { transform: scale3d(100%, 200%, 1) }",
++      ".foo{transform:scaleY(2)}",
++    );
++    minify_test(
++      ".foo { transform: scale3d(100%, 100%, 0%) }",
++      ".foo{transform:scaleZ(0)}",
++    );
++    minify_test(
++      ".foo { transform: scale3d(100%, 100%, 100%) }",
++      ".foo{transform:scale(1)}",
++    );
++    minify_test(
++      ".foo { transform: scale3d(-0%, -0%, -0%) }",
++      ".foo{transform:scale3d(0,0,0)}",
++    );
+     // Additional edge cases: mixed inputs and computed percentages.
+     minify_test(".foo { transform: scale(2, 100%) }", ".foo{transform:scaleX(2)}");
+     minify_test(".foo { transform: scale(2, -50%) }", ".foo{transform:scale(2,-.5)}");
+     minify_test(".foo { transform: scale(-90%, -1) }", ".foo{transform:scale(-.9,-1)}");
+-    minify_test(".foo { transform: scale(calc(10% + 20%)) }", ".foo{transform:scale(.3)}");
+-    minify_test(".foo { transform: scale(calc(150% - 50%), 200%) }", ".foo{transform:scaleY(2)}");
+-    minify_test(".foo { transform: scale(200%, calc(50% - 80%)) }", ".foo{transform:scale(2,-.3)}");
++    minify_test(
++      ".foo { transform: scale(calc(10% + 20%)) }",
++      ".foo{transform:scale(.3)}",
++    );
++    minify_test(
++      ".foo { transform: scale(calc(150% - 50%), 200%) }",
++      ".foo{transform:scaleY(2)}",
++    );
++    minify_test(
++      ".foo { transform: scale(200%, calc(50% - 80%)) }",
++      ".foo{transform:scale(2,-.3)}",
++    );
+     // TODO: For infinite decimals, please do not attempt to resolve calc
+     // Expected: calc(1 / 3)
+     // https://github.com/parcel-bundler/lightningcss/issues/12
+-    minify_test(".foo { transform: scale(calc(100% / 3)) }", ".foo{transform:scale(.333333)}");
++    minify_test(
++      ".foo { transform: scale(calc(100% / 3)) }",
++      ".foo{transform:scale(.333333)}",
++    );
+     // Transform::ScaleX/Y/Z
+     minify_test(".foo { transform: scaleX(10%) }", ".foo{transform:scaleX(.1)}");
+     minify_test(".foo { transform: scaleY(20%) }", ".foo{transform:scaleY(.2)}");
+     minify_test(".foo { transform: scaleZ(30%) }", ".foo{transform:scaleZ(.3)}");
+     minify_test(".foo { transform: scaleX(0%) }", ".foo{transform:scaleX(0)}");
+     minify_test(".foo { transform: scaleX(-0%) }", ".foo{transform:scaleX(0)}");
+-    minify_test(".foo { transform: scaleX(calc(10% + 20%)) }", ".foo{transform:scaleX(.3)}");
+-    minify_test(".foo { transform: scaleX(calc(180% - 20%)) }", ".foo{transform:scaleX(1.6)}");
+-    minify_test(".foo { transform: scaleX(calc(50% - 80%)) }", ".foo{transform:scaleX(-.3)}");
++    minify_test(
++      ".foo { transform: scaleX(calc(10% + 20%)) }",
++      ".foo{transform:scaleX(.3)}",
++    );
++    minify_test(
++      ".foo { transform: scaleX(calc(180% - 20%)) }",
++      ".foo{transform:scaleX(1.6)}",
++    );
++    minify_test(
++      ".foo { transform: scaleX(calc(50% - 80%)) }",
++      ".foo{transform:scaleX(-.3)}",
++    );
+ 
+     minify_test(".foo { transform: rotate(20deg)", ".foo{transform:rotate(20deg)}");
+     minify_test(".foo { transform: rotateX(20deg)", ".foo{transform:rotateX(20deg)}");
+@@ -13838,7 +14056,7 @@ mod tests {
        },
      );
  
@@ -256,7 +347,7 @@ index eefef76..67b107a 100644
        ".foo { background: linear-gradient(lch(56.208% 136.76 46.312), lch(51% 135.366 301.364)) }",
        indoc! { r#"
          .foo {
-@@ -13591,9 +13773,10 @@ mod tests {
+@@ -13850,9 +14068,10 @@ mod tests {
          chrome: Some(90 << 16),
          ..Browsers::default()
        },
@@ -268,7 +359,7 @@ index eefef76..67b107a 100644
        ".foo { background: linear-gradient(lch(56.208% 136.76 46.312), lch(51% 135.366 301.364)) }",
        indoc! { r#"
          .foo {
-@@ -13607,6 +13790,7 @@ mod tests {
+@@ -13866,6 +14085,7 @@ mod tests {
          safari: Some(14 << 16),
          ..Browsers::default()
        },
@@ -276,7 +367,7 @@ index eefef76..67b107a 100644
      );
  
      prefix_test(
-@@ -13653,7 +13837,7 @@ mod tests {
+@@ -13912,7 +14132,7 @@ mod tests {
        },
      );
  
@@ -285,7 +376,7 @@ index eefef76..67b107a 100644
        ".foo { background-image: linear-gradient(oklab(59.686% 0.1009 0.1192), oklab(54.0% -0.10 -0.02)); }",
        indoc! { r#"
          .foo {
-@@ -13664,6 +13848,7 @@ mod tests {
+@@ -13923,6 +14143,7 @@ mod tests {
          safari: Some(15 << 16),
          ..Browsers::default()
        },
@@ -293,7 +384,7 @@ index eefef76..67b107a 100644
      );
  
      prefix_test(
-@@ -13680,7 +13865,7 @@ mod tests {
+@@ -13939,7 +14160,7 @@ mod tests {
        },
      );
  
@@ -302,7 +393,7 @@ index eefef76..67b107a 100644
        ".foo { background-image: linear-gradient(lch(56.208% 136.76 46.312), lch(51% 135.366 301.364)) }",
        indoc! { r#"
          .foo {
-@@ -13694,6 +13879,7 @@ mod tests {
+@@ -13953,6 +14174,7 @@ mod tests {
          safari: Some(14 << 16),
          ..Browsers::default()
        },
@@ -310,7 +401,7 @@ index eefef76..67b107a 100644
      );
  
      prefix_test(
-@@ -13740,7 +13926,7 @@ mod tests {
+@@ -13999,7 +14221,7 @@ mod tests {
        },
      );
  
@@ -319,7 +410,7 @@ index eefef76..67b107a 100644
        ".foo { background-image: linear-gradient(oklab(59.686% 0.1009 0.1192), oklab(54.0% -0.10 -0.02)); }",
        indoc! { r#"
          .foo {
-@@ -13751,6 +13937,7 @@ mod tests {
+@@ -14010,6 +14232,7 @@ mod tests {
          safari: Some(15 << 16),
          ..Browsers::default()
        },
@@ -327,7 +418,7 @@ index eefef76..67b107a 100644
      );
  
      // Test cases from https://github.com/postcss/autoprefixer/blob/541295c0e6dd348db2d3f52772b59cd403c59d29/test/cases/gradient.css
-@@ -18747,9 +18934,10 @@ mod tests {
+@@ -19006,9 +19229,10 @@ mod tests {
            ..PrinterOptions::default()
          })
          .unwrap();
@@ -339,7 +430,7 @@ index eefef76..67b107a 100644
        );
      }
  
-@@ -20575,9 +20763,10 @@ mod tests {
+@@ -20834,9 +21058,10 @@ mod tests {
        ".foo { color: color-mix(in lab, purple 50%, plum 50%); }",
        ".foo{color:lab(51.5117% 43.3777 -29.0443)}",
      );
@@ -351,8 +442,106 @@ index eefef76..67b107a 100644
      );
      minify_test(
        ".foo { color: color-mix(in lch, teal 65%, olive); }",
+@@ -28135,70 +28360,25 @@ mod tests {
+ 
+   #[test]
+   fn test_mix_blend_mode() {
+-    minify_test(
+-      ".foo { mix-blend-mode: normal }",
+-      ".foo{mix-blend-mode:normal}",
+-    );
+-    minify_test(
+-      ".foo { mix-blend-mode: multiply }",
+-      ".foo{mix-blend-mode:multiply}",
+-    );
+-    minify_test(
+-      ".foo { mix-blend-mode: screen }",
+-      ".foo{mix-blend-mode:screen}",
+-    );
+-    minify_test(
+-      ".foo { mix-blend-mode: overlay }",
+-      ".foo{mix-blend-mode:overlay}",
+-    );
+-    minify_test(
+-      ".foo { mix-blend-mode: darken }",
+-      ".foo{mix-blend-mode:darken}",
+-    );
+-    minify_test(
+-      ".foo { mix-blend-mode: lighten }",
+-      ".foo{mix-blend-mode:lighten}",
+-    );
++    minify_test(".foo { mix-blend-mode: normal }", ".foo{mix-blend-mode:normal}");
++    minify_test(".foo { mix-blend-mode: multiply }", ".foo{mix-blend-mode:multiply}");
++    minify_test(".foo { mix-blend-mode: screen }", ".foo{mix-blend-mode:screen}");
++    minify_test(".foo { mix-blend-mode: overlay }", ".foo{mix-blend-mode:overlay}");
++    minify_test(".foo { mix-blend-mode: darken }", ".foo{mix-blend-mode:darken}");
++    minify_test(".foo { mix-blend-mode: lighten }", ".foo{mix-blend-mode:lighten}");
+     minify_test(
+       ".foo { mix-blend-mode: color-dodge }",
+       ".foo{mix-blend-mode:color-dodge}",
+     );
+-    minify_test(
+-      ".foo { mix-blend-mode: color-burn }",
+-      ".foo{mix-blend-mode:color-burn}",
+-    );
+-    minify_test(
+-      ".foo { mix-blend-mode: hard-light }",
+-      ".foo{mix-blend-mode:hard-light}",
+-    );
+-    minify_test(
+-      ".foo { mix-blend-mode: soft-light }",
+-      ".foo{mix-blend-mode:soft-light}",
+-    );
+-    minify_test(
+-      ".foo { mix-blend-mode: difference }",
+-      ".foo{mix-blend-mode:difference}",
+-    );
+-    minify_test(
+-      ".foo { mix-blend-mode: exclusion }",
+-      ".foo{mix-blend-mode:exclusion}",
+-    );
+-    minify_test(
+-      ".foo { mix-blend-mode: hue }",
+-      ".foo{mix-blend-mode:hue}",
+-    );
+-    minify_test(
+-      ".foo { mix-blend-mode: saturation }",
+-      ".foo{mix-blend-mode:saturation}",
+-    );
+-    minify_test(
+-      ".foo { mix-blend-mode: color }",
+-      ".foo{mix-blend-mode:color}",
+-    );
+-    minify_test(
+-      ".foo { mix-blend-mode: luminosity }",
+-      ".foo{mix-blend-mode:luminosity}",
+-    );
++    minify_test(".foo { mix-blend-mode: color-burn }", ".foo{mix-blend-mode:color-burn}");
++    minify_test(".foo { mix-blend-mode: hard-light }", ".foo{mix-blend-mode:hard-light}");
++    minify_test(".foo { mix-blend-mode: soft-light }", ".foo{mix-blend-mode:soft-light}");
++    minify_test(".foo { mix-blend-mode: difference }", ".foo{mix-blend-mode:difference}");
++    minify_test(".foo { mix-blend-mode: exclusion }", ".foo{mix-blend-mode:exclusion}");
++    minify_test(".foo { mix-blend-mode: hue }", ".foo{mix-blend-mode:hue}");
++    minify_test(".foo { mix-blend-mode: saturation }", ".foo{mix-blend-mode:saturation}");
++    minify_test(".foo { mix-blend-mode: color }", ".foo{mix-blend-mode:color}");
++    minify_test(".foo { mix-blend-mode: luminosity }", ".foo{mix-blend-mode:luminosity}");
+     minify_test(
+       ".foo { mix-blend-mode: plus-darker }",
+       ".foo{mix-blend-mode:plus-darker}",
+@@ -30740,7 +30920,10 @@ mod tests {
+       ".foo { color-scheme: dark light only; }",
+       ".foo{color-scheme:light dark only}",
+     );
+-    minify_test(".foo { color-scheme: foo bar light; }", ".foo{color-scheme:foo bar light}");
++    minify_test(
++      ".foo { color-scheme: foo bar light; }",
++      ".foo{color-scheme:foo bar light}",
++    );
+     minify_test(
+       ".foo { color-scheme: only foo dark bar; }",
+       ".foo{color-scheme:only foo dark bar}",
 diff --git a/src/main.rs b/src/main.rs
-index ff7216a..693d710 100644
+index ff7216a..48f45db 100644
 --- a/src/main.rs
 +++ b/src/main.rs
 @@ -7,7 +7,7 @@ use parcel_sourcemap::SourceMap;
@@ -364,7 +553,7 @@ index ff7216a..693d710 100644
  
  #[cfg(target_os = "macos")]
  #[global_allocator]
-@@ -71,9 +71,87 @@ struct SourceMapJson<'a> {
+@@ -71,9 +71,83 @@ struct SourceMapJson<'a> {
    names: &'a Vec<String>,
  }
  
@@ -399,12 +588,8 @@ index ff7216a..693d710 100644
 +    }
 +  }
 +
-+  pathdiff::diff_paths(path, project_root).unwrap_or_else(|| {
-+    path
-+      .file_name()
-+      .map(PathBuf::from)
-+      .unwrap_or_else(|| path.to_path_buf())
-+  })
++  pathdiff::diff_paths(path, project_root)
++    .unwrap_or_else(|| path.file_name().map(PathBuf::from).unwrap_or_else(|| path.to_path_buf()))
 +}
 +
 +#[cfg(windows)]
@@ -453,7 +638,7 @@ index ff7216a..693d710 100644
  
    // If we're given an input file, read from it and adjust its name.
    //
-@@ -96,8 +174,8 @@ pub fn main() -> Result<(), std::io::Error> {
+@@ -96,8 +170,9 @@ pub fn main() -> Result<(), std::io::Error> {
        .input_file
        .into_iter()
        .map(|ref f| -> Result<_, std::io::Error> {
@@ -461,6 +646,7 @@ index ff7216a..693d710 100644
 -        let filename = pathdiff::diff_paths(absolute_path, &project_root).unwrap();
 +        let absolute_path = normalize_path_for_cli(fs::canonicalize(f)?);
 +        let filename = relative_path_for_cli(&absolute_path, &project_root);
++
          let filename = filename.to_string_lossy().into_owned();
          let contents = fs::read_to_string(f)?;
          Ok((filename, contents))
