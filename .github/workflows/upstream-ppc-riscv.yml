@@ -176,6 +176,9 @@ jobs:
               apt-get update
               apt-get install -y nodejs npm yarn
             fi
+            if [ -f lightningcss.linux-powerpc64le-gnu.node ] && [ ! -f lightningcss.linux-ppc64-gnu.node ]; then
+              mv lightningcss.linux-powerpc64le-gnu.node lightningcss.linux-ppc64-gnu.node
+            fi
             yarn test
             node -e "require('.')"
 
