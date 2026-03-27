@@ -173,6 +173,7 @@ jobs:
           options: -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }}/${{ env.WORKING_DIRECTORY }} --platform ${{ steps.docker.outputs.PLATFORM }}
           run: |
             if ! command -v node >/dev/null 2>&1; then
+              export DEBIAN_FRONTEND=noninteractive
               apt-get update
               apt-get install -y nodejs npm
               npm install -g yarn
