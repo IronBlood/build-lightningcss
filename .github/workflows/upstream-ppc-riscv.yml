@@ -1,0 +1,231 @@
+name: Build upstream for ppc64 / s390x / riscv
+env:
+  DEBUG: napi:*
+  APP_NAME: lightningcss
+
+  WORKING_DIRECTORY: lightningcss
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
+on:
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - os: ubuntu-latest
+            target: powerpc64le-unknown-linux-gnu
+            strip: powerpc64le-linux-gnu-strip
+            linker: CARGO_TARGET_POWERPC64LE_UNKNOWN_LINUX_GNU_LINKER=powerpc64le-linux-gnu-gcc
+            setup: |
+              sudo apt update
+              sudo apt install -y gcc-powerpc64le-linux-gnu libc6-dev-ppc64el-cross
+            build_test: true
+          - os: ubuntu-latest
+            target: s390x-unknown-linux-gnu
+            strip: s390x-linux-gnu-strip
+            linker: CARGO_TARGET_S390X_UNKNOWN_LINUX_GNU_LINKER=s390x-linux-gnu-gcc
+            setup: |
+              sudo apt update
+              sudo apt install -y gcc-s390x-linux-gnu libc6-dev-s390x-cross llvm
+            build_test: true
+          - os: ubuntu-latest
+            target: riscv64gc-unknown-linux-gnu
+            strip: riscv64-linux-gnu-strip
+            linker: CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER=riscv64-linux-gnu-gcc
+            setup: |
+              sudo apt update
+              sudo apt install -y gcc-riscv64-linux-gnu libc6-dev-riscv64-cross
+            build_test: true
+    name: build-${{ matrix.settings.target }}
+    runs-on: ${{ matrix.settings.os }}
+    env:
+      BINARY_NAME: ${{ contains(matrix.settings.os, 'windows') && 'lightningcss.exe' || 'lightningcss' }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: checkout upstream
+        run: |
+          git clone --depth 1 https://github.com/parcel-bundler/lightningcss lightningcss
+      - name: Setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: "yarn"
+          cache-dependency-path: lightningcss/yarn.lock
+      - name: Install Rust
+        if: ${{ !matrix.settings.build_std && !matrix.settings.msys }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          rustup target add ${{ matrix.settings.target }}
+      - name: Install node.js dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: yarn install
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.9
+      - name: Cache cargo
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ~/.napi-rs
+            ${{ env.WORKING_DIRECTORY }}/.cargo-cache
+          key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.os }}-${{ hashFiles(format('{0}/Cargo.lock', env.WORKING_DIRECTORY)) }}
+      - name: Setup toolchain
+        if: ${{ matrix.settings.setup }}
+        run: ${{ matrix.settings.setup }}
+      - name: Build release
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: ${{ matrix.settings.linker || '' }} npx napi build --release --platform --cargo-cwd node --target ${{ matrix.settings.target }}
+      - name: Build CLI
+        if: ${{ !matrix.settings.android && matrix.settings.target != 'aarch64-apple-darwin' && !matrix.settings.msys }}
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          ${{ matrix.settings.linker || '' }} cargo build  --release --features cli --target ${{ matrix.settings.target }}
+          node -e "require('fs').renameSync('target/${{ matrix.settings.target }}/release/${{ env.BINARY_NAME }}', '${{ env.BINARY_NAME }}')"
+      - name: Build and tests (no run)
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        if: ${{ matrix.settings.build_test }}
+        run: |
+          mkdir -p test_bins
+          ${{ matrix.settings.linker || '' }} cargo test --no-run --all-features --target ${{ matrix.settings.target }} --message-format=json 2>cross.log | grep -E '^\{' | tee cargo-test.jsonl > /dev/null
+          jq -r 'select(.reason=="compiler-artifact")|select(.profile.test==true)|.executable//empty' cargo-test.jsonl | sed "s|^/target|target|" | tr '\n' '\0' | xargs -0 -I{} cp "{}" test_bins/
+          cp target/${{ matrix.settings.target }}/debug/lightningcss test_bins/
+          ls -alh test_bins/
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bindings-${{ matrix.settings.target }}
+          path: |
+            ${{ env.WORKING_DIRECTORY }}/*.node
+            ${{ env.WORKING_DIRECTORY }}/${{ env.BINARY_NAME }}
+      - name: Upload test
+        if: ${{ matrix.settings.build_test }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-${{ matrix.settings.target }}
+          path: |
+            ${{ env.WORKING_DIRECTORY }}/test_bins
+
+  test-js:
+    name: Test JS bindings for ${{ matrix.settings.target }}
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - target: powerpc64le-unknown-linux-gnu
+          - target: s390x-unknown-linux-gnu
+          - target: riscv64gc-unknown-linux-gnu
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: checkout upstream
+        run: |
+          git clone --depth 1 https://github.com/parcel-bundler/lightningcss lightningcss
+      - name: Setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: "yarn"
+          cache-dependency-path: lightningcss/yarn.lock
+      - name: Download artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: bindings-${{ matrix.settings.target }}
+          path: ${{ env.WORKING_DIRECTORY }}
+      - name: Output docker params
+        id: docker
+        run: |
+          if [[ "${{ matrix.settings.target }}" == powerpc64le-* ]]; then
+            echo "PLATFORM=linux/ppc64le" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ matrix.settings.target }}" == s390x-* ]]; then
+            echo "PLATFORM=linux/s390x" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ matrix.settings.target }}" == riscv64gc-* ]]; then
+            echo "PLATFORM=linux/riscv64" >> "$GITHUB_OUTPUT"
+          else
+            echo "PLATFORM=linux/amd64" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+      - run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+      - name: Install dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          yarn config set --json supportedArchitectures.cpu '["current", "arm64", "x64", "arm"]'
+          yarn config set --json supportedArchitectures.libc '["current", "gnu", "musl"]'
+          yarn install --ignore-scripts
+      - name: Test bindings
+        uses: addnab/docker-run-action@v3
+        with:
+          image: node:24-slim
+          options: -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }}/${{ env.WORKING_DIRECTORY }} --platform ${{ steps.docker.outputs.PLATFORM }}
+          run: |
+            yarn test
+            node -e "require('.')"
+
+  test-rust-bins:
+    name: Test Rust bins for ${{ matrix.settings.target }}
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - target: powerpc64le-unknown-linux-gnu
+            platform: linux/ppc64le
+          - target: s390x-unknown-linux-gnu
+            platform: linux/s390x
+          - target: riscv64gc-unknown-linux-gnu
+            platform: linux/riscv64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: checkout upstream
+        run: |
+          git clone --depth 1 https://github.com/parcel-bundler/lightningcss lightningcss
+      - name: Download artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: bindings-${{ matrix.settings.target }}
+          path: ${{ env.WORKING_DIRECTORY }}
+      - name: Download test
+        uses: actions/download-artifact@v7
+        with:
+          name: test-${{ matrix.settings.target }}
+          path: ${{ env.WORKING_DIRECTORY }}/test_bins
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+      - run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+      - name: Test cargo test bins
+        uses: addnab/docker-run-action@v3
+        with:
+          image: debian:stable
+          options: -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }}/${{ env.WORKING_DIRECTORY }} --platform ${{ matrix.settings.platform }}
+          run: |
+            file lightningcss
+            chmod +x lightningcss test_bins/*
+            ./lightningcss --help
+            export RAYON_NUM_THREADS=1
+            if [ -d test_bins ]; then
+              for bin in test_bins/*; do
+                [ -f "$bin" ] || continue
+                if [ "$(basename "$bin")" = "lightningcss" ]; then
+                  continue
+                fi
+                echo "=== $bin ==="
+                "$bin"
+              done
+            else
+              echo "test_bins directory not found"
+              exit 1
+            fi
