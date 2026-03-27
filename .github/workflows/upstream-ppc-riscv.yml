@@ -121,8 +121,11 @@ jobs:
       matrix:
         settings:
           - target: powerpc64le-unknown-linux-gnu
+            image: node:24-slim
           - target: s390x-unknown-linux-gnu
+            image: node:24-slim
           - target: riscv64gc-unknown-linux-gnu
+            image: debian:stable
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -166,9 +169,13 @@ jobs:
       - name: Test bindings
         uses: addnab/docker-run-action@v3
         with:
-          image: node:24-slim
+          image: ${{ matrix.settings.image }}
           options: -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }}/${{ env.WORKING_DIRECTORY }} --platform ${{ steps.docker.outputs.PLATFORM }}
           run: |
+            if ! command -v node >/dev/null 2>&1; then
+              apt-get update
+              apt-get install -y nodejs npm yarn
+            fi
             yarn test
             node -e "require('.')"
 
