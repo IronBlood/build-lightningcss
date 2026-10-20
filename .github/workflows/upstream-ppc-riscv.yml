@@ -123,7 +123,8 @@ jobs:
           - target: powerpc64le-unknown-linux-gnu
             image: node:24-slim
           - target: s390x-unknown-linux-gnu
-            image: node:24-slim
+            # Install Debian's native Node.js using the fallback below.
+            image: debian:stable
           - target: riscv64gc-unknown-linux-gnu
             image: debian:stable
     runs-on: ubuntu-latest
